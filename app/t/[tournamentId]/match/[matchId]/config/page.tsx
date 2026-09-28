@@ -7,9 +7,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { useSessionStore, useLiveMatchStore } from '@/store/tournamentStore'
-import type { MatchPlayer, TournamentTeam, MatchConfig } from '@/types'
-
-const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === 'true'
+import {
+  getTournamentMatches, saveMatchConfig, saveMatchPlayer, updateTournamentMatchStatus,
+} from '@/lib/supabase/queries'
+import type { MatchPlayer, TournamentTeam } from '@/types'
 
 type PlayerForm = {
   nombre: string
@@ -113,12 +114,14 @@ export default function MatchConfigPage() {
   }, [matchId])
 
   async function loadMatch() {
-    if (!USE_MOCK) return
-    const { mockGetTournamentMatches } = await import('@/lib/supabase/mock-db')
-    const matches = await mockGetTournamentMatches(tournamentId)
-    const m = matches.find((x) => x.id === matchId)
-    if (!m || !m.team_home || !m.team_away) { router.push(`/t/${tournamentId}`); return }
-    setMatchData({ teamHome: m.team_home, teamAway: m.team_away })
+    try {
+      const matches = await getTournamentMatches(tournamentId)
+      const m = matches.find((x) => x.id === matchId)
+      if (!m || !m.team_home || !m.team_away) { router.push(`/t/${tournamentId}`); return }
+      setMatchData({ teamHome: m.team_home, teamAway: m.team_away })
+    } catch (e) {
+      console.error(e)
+    }
   }
 
   function updatePlayer(
@@ -178,61 +181,51 @@ export default function MatchConfigPage() {
     if (!canStart || !matchData) return
     setStarting(true)
     try {
-      if (USE_MOCK) {
-        const {
-          mockSaveMatchConfig,
-          mockSaveMatchPlayer,
-          mockUpdateTournamentMatchStatus,
-        } = await import('@/lib/supabase/mock-db')
+      const config = await saveMatchConfig({
+        tournament_match_id: matchId,
+        ...officials,
+        possession_home: true,
+      })
 
-        // Save officials
-        const config = await mockSaveMatchConfig({
+      const savedHome: MatchPlayer[] = []
+      const savedAway: MatchPlayer[] = []
+
+      for (const p of playersHome) {
+        if (!p.nombre.trim() || !p.numero) continue
+        const saved = await saveMatchPlayer({
           tournament_match_id: matchId,
-          ...officials,
-          possession_home: true,
+          team_id: matchData.teamHome.id,
+          nombre: p.nombre.trim(),
+          numero: parseInt(p.numero),
+          is_starter: p.is_starter,
+          is_captain: p.is_captain,
         })
-
-        // Save players
-        const savedHome: MatchPlayer[] = []
-        const savedAway: MatchPlayer[] = []
-
-        for (const p of playersHome) {
-          if (!p.nombre.trim() || !p.numero) continue
-          const saved = await mockSaveMatchPlayer({
-            tournament_match_id: matchId,
-            team_id: matchData.teamHome.id,
-            nombre: p.nombre.trim(),
-            numero: parseInt(p.numero),
-            is_starter: p.is_starter,
-            is_captain: p.is_captain,
-          })
-          savedHome.push(saved)
-        }
-        for (const p of playersAway) {
-          if (!p.nombre.trim() || !p.numero) continue
-          const saved = await mockSaveMatchPlayer({
-            tournament_match_id: matchId,
-            team_id: matchData.teamAway.id,
-            nombre: p.nombre.trim(),
-            numero: parseInt(p.numero),
-            is_starter: p.is_starter,
-            is_captain: p.is_captain,
-          })
-          savedAway.push(saved)
-        }
-
-        await mockUpdateTournamentMatchStatus(matchId, 'en_curso')
-
-        initLiveMatch(
-          matchId,
-          config,
-          matchData.teamHome,
-          matchData.teamAway,
-          savedHome,
-          savedAway,
-          []
-        )
+        savedHome.push(saved)
       }
+      for (const p of playersAway) {
+        if (!p.nombre.trim() || !p.numero) continue
+        const saved = await saveMatchPlayer({
+          tournament_match_id: matchId,
+          team_id: matchData.teamAway.id,
+          nombre: p.nombre.trim(),
+          numero: parseInt(p.numero),
+          is_starter: p.is_starter,
+          is_captain: p.is_captain,
+        })
+        savedAway.push(saved)
+      }
+
+      await updateTournamentMatchStatus(matchId, 'en_curso')
+
+      initLiveMatch(
+        matchId,
+        config,
+        matchData.teamHome,
+        matchData.teamAway,
+        savedHome,
+        savedAway,
+        []
+      )
 
       router.push(`/t/${tournamentId}/match/${matchId}/play`)
     } catch (e) {

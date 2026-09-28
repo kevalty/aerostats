@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
@@ -8,9 +8,11 @@ import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useSessionStore } from '@/store/tournamentStore'
+import {
+  getTournamentTeams, createTournamentTeam, deleteTournamentTeam,
+  getTournamentMatches, createTournamentMatch,
+} from '@/lib/supabase/queries'
 import type { TournamentTeam, TournamentMatch } from '@/types'
-
-const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === 'true'
 
 export default function SetupPage() {
   const { tournamentId } = useParams<{ tournamentId: string }>()
@@ -31,40 +33,43 @@ export default function SetupPage() {
   }, [tournamentId])
 
   async function loadData() {
-    if (!USE_MOCK) return
-    const { mockGetTournamentTeams, mockGetTournamentMatches } = await import('@/lib/supabase/mock-db')
-    const [t, m] = await Promise.all([
-      mockGetTournamentTeams(tournamentId),
-      mockGetTournamentMatches(tournamentId),
-    ])
-    setTeams(t)
-    setMatches(m)
+    try {
+      const [t, m] = await Promise.all([
+        getTournamentTeams(tournamentId),
+        getTournamentMatches(tournamentId),
+      ])
+      setTeams(t)
+      setMatches(m)
+    } catch (e) {
+      console.error(e)
+    }
   }
 
   async function handleAddTeam() {
     if (!teamForm.nombre.trim()) return
-    if (USE_MOCK) {
-      const { mockCreateTournamentTeam } = await import('@/lib/supabase/mock-db')
-      await mockCreateTournamentTeam({ tournament_id: tournamentId, ...teamForm })
+    try {
+      await createTournamentTeam({ tournament_id: tournamentId, ...teamForm })
+      setTeamDialog(false)
+      setTeamForm({ nombre: '', ciudad: '', categoria: '', genero: '' })
+      await loadData()
+    } catch (e) {
+      console.error(e)
     }
-    setTeamDialog(false)
-    setTeamForm({ nombre: '', ciudad: '', categoria: '', genero: '' })
-    await loadData()
   }
 
   async function handleDeleteTeam(id: string) {
-    if (USE_MOCK) {
-      const { mockDeleteTournamentTeam } = await import('@/lib/supabase/mock-db')
-      await mockDeleteTournamentTeam(id)
+    try {
+      await deleteTournamentTeam(id)
+      await loadData()
+    } catch (e) {
+      console.error(e)
     }
-    await loadData()
   }
 
   async function handleAddVersus() {
     if (!versusForm.homeId || !versusForm.awayId || versusForm.homeId === versusForm.awayId) return
-    if (USE_MOCK) {
-      const { mockCreateTournamentMatch } = await import('@/lib/supabase/mock-db')
-      await mockCreateTournamentMatch({
+    try {
+      await createTournamentMatch({
         tournament_id: tournamentId,
         team_home_id: versusForm.homeId,
         team_away_id: versusForm.awayId,
@@ -72,10 +77,12 @@ export default function SetupPage() {
         scheduled_at: versusForm.scheduled_at || undefined,
         status: 'pendiente',
       })
+      setVersusDialog(false)
+      setVersusForm({ homeId: '', awayId: '', scheduled_at: '' })
+      await loadData()
+    } catch (e) {
+      console.error(e)
     }
-    setVersusDialog(false)
-    setVersusForm({ homeId: '', awayId: '', scheduled_at: '' })
-    await loadData()
   }
 
   return (

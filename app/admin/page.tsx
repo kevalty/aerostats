@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
@@ -6,9 +6,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { getTournaments, createTournament } from '@/lib/supabase/queries'
 import type { Tournament } from '@/types'
-
-const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === 'true'
 
 function generateCredentials(nombre: string) {
   const slug = nombre.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').slice(0, 20)
@@ -27,10 +26,12 @@ export default function AdminPage() {
   const [creating, setCreating] = useState(false)
 
   async function load() {
-    if (!USE_MOCK) return
-    const { mockGetTournaments } = await import('@/lib/supabase/mock-db')
-    const data = await mockGetTournaments()
-    setTournaments(data)
+    try {
+      const data = await getTournaments()
+      setTournaments(data)
+    } catch (e) {
+      console.error(e)
+    }
   }
 
   useEffect(() => { load() }, [])
@@ -40,16 +41,15 @@ export default function AdminPage() {
     setCreating(true)
     try {
       const { username, password } = generateCredentials(form.nombre)
-      if (USE_MOCK) {
-        const { mockCreateTournament } = await import('@/lib/supabase/mock-db')
-        await mockCreateTournament({
-          nombre: form.nombre.trim(),
-          max_partidos: parseInt(form.max_partidos) || 5,
-          op_username: username,
-          op_password_hash: password, // plaintext in mock
-          status: 'activo',
-        })
-      }
+      const bcrypt = await import('bcryptjs')
+      const hash = await bcrypt.hash(password, 10)
+      await createTournament({
+        nombre: form.nombre.trim(),
+        max_partidos: parseInt(form.max_partidos) || 5,
+        op_username: username,
+        op_password_hash: hash,
+        status: 'activo',
+      })
       setNewCreds({ username, password, nombre: form.nombre.trim() })
       setDialogOpen(false)
       setCredsDialogOpen(true)
@@ -73,7 +73,9 @@ export default function AdminPage() {
           <h1 className="text-2xl font-bold text-primary">Panel Admin</h1>
           <p className="text-xs text-muted-foreground">AroStats · Gestión de torneos</p>
         </div>
-        {USE_MOCK && <Badge variant="secondary" className="font-mono text-xs">MOCK</Badge>}
+        <a href="/login" className="text-xs text-muted-foreground hover:text-foreground underline">
+          ← Login operador
+        </a>
       </header>
 
       <Button className="w-full mb-6" onClick={() => setDialogOpen(true)}>
@@ -91,7 +93,7 @@ export default function AdminPage() {
                   <div>
                     <p className="font-medium">{t.nombre}</p>
                     <p className="text-xs text-muted-foreground font-mono mt-1">
-                      {t.op_username} / {t.op_password_hash}
+                      {t.op_username}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {t.max_partidos} partido{t.max_partidos !== 1 ? 's' : ''} ·{' '}

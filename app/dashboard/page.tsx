@@ -15,8 +15,6 @@ import {
 import { getTeams, getMatches, createMatch } from '@/lib/supabase/queries'
 import type { Team, Match } from '@/types'
 
-const IS_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === 'true'
-
 export default function DashboardPage() {
   const router = useRouter()
   const [teams, setTeams] = useState<Team[]>([])
@@ -32,19 +30,6 @@ export default function DashboardPage() {
   }
 
   useEffect(() => { reload() }, [])
-
-  async function handleSeed() {
-    const { mockSeedData } = await import('@/lib/supabase/mock-db')
-    mockSeedData()
-    await reload()
-  }
-
-  async function handleClearAll() {
-    const { mockClearAll } = await import('@/lib/supabase/mock-db')
-    mockClearAll()
-    setTeams([])
-    setMatches([])
-  }
 
   async function handleCreateMatch() {
     if (!homeTeamId || !awayTeamId || homeTeamId === awayTeamId) return
@@ -63,31 +48,9 @@ export default function DashboardPage() {
   return (
     <main className="min-h-screen p-4 max-w-lg mx-auto">
       <header className="mb-6 pt-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-primary">AroStats</h1>
-          {IS_MOCK && (
-            <Badge variant="secondary" className="text-xs font-mono">
-              MOCK · localStorage
-            </Badge>
-          )}
-        </div>
+        <h1 className="text-3xl font-bold text-primary">AroStats</h1>
         <p className="text-muted-foreground text-sm mt-1">Planillaje deportivo interactivo</p>
       </header>
-
-      {/* Mock dev toolbar */}
-      {IS_MOCK && (
-        <div className="flex gap-2 mb-6 p-3 rounded-lg border border-dashed border-primary/30 bg-primary/5">
-          <p className="text-xs text-muted-foreground flex-1 self-center">
-            Modo demo — datos en localStorage
-          </p>
-          <Button size="sm" variant="outline" className="text-xs h-7" onClick={handleSeed}>
-            Cargar datos de prueba
-          </Button>
-          <Button size="sm" variant="ghost" className="text-xs h-7 text-destructive" onClick={handleClearAll}>
-            Limpiar
-          </Button>
-        </div>
-      )}
 
       <div className="grid grid-cols-2 gap-3 mb-8">
         <Link href="/teams">
@@ -140,11 +103,6 @@ export default function DashboardPage() {
                   </SelectContent>
                 </Select>
               </div>
-              {teams.length === 0 && IS_MOCK && (
-                <p className="text-xs text-muted-foreground text-center">
-                  Primero carga datos de prueba o crea equipos en /teams
-                </p>
-              )}
               <Button
                 className="w-full"
                 onClick={handleCreateMatch}
@@ -163,7 +121,7 @@ export default function DashboardPage() {
         </h2>
         {matches.length === 0 ? (
           <p className="text-muted-foreground text-sm text-center py-8">
-            No hay partidos aún. ¡Crea el primero!
+            No hay partidos aún.
           </p>
         ) : (
           <div className="space-y-2">

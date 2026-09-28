@@ -7,9 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { saveSignature, updateTournamentMatchStatus } from '@/lib/supabase/queries'
 import type { SignatureRole } from '@/types'
-
-const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === 'true'
 
 // ── Signature canvas ──────────────────────────────────────────────────────────
 function SignatureCanvas({
@@ -251,20 +250,15 @@ export default function SummaryPage() {
   async function handleFinalize() {
     setFinalizing(true)
     try {
-      if (USE_MOCK) {
-        const { mockSaveSignature, mockUpdateTournamentMatchStatus } = await import(
-          '@/lib/supabase/mock-db'
-        )
-        for (const rol of ROLES) {
-          await mockSaveSignature({
-            tournament_match_id: matchId,
-            rol,
-            signer_name: sigs[rol].name,
-            signature_svg: sigs[rol].svg,
-          })
-        }
-        await mockUpdateTournamentMatchStatus(matchId, 'finalizado')
+      for (const rol of ROLES) {
+        await saveSignature({
+          tournament_match_id: matchId,
+          rol,
+          signer_name: sigs[rol].name,
+          signature_svg: sigs[rol].svg,
+        })
       }
+      await updateTournamentMatchStatus(matchId, 'finalizado')
       resetLiveMatch()
       router.push(`/t/${tournamentId}`)
     } catch (e) {

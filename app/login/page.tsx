@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -6,8 +6,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useSessionStore } from '@/store/tournamentStore'
-
-const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === 'true'
+import { authOperator } from '@/lib/supabase/queries'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -22,11 +21,7 @@ export default function LoginPage() {
     setError('')
     setLoading(true)
     try {
-      let tournament = null
-      if (USE_MOCK) {
-        const { mockAuthOperator } = await import('@/lib/supabase/mock-db')
-        tournament = await mockAuthOperator(username.trim(), password)
-      }
+      const tournament = await authOperator(username.trim(), password)
       if (!tournament) {
         setError('Usuario o contraseña incorrectos')
         return
@@ -38,7 +33,7 @@ export default function LoginPage() {
         logged_in_at: new Date().toISOString(),
       })
       router.push(`/t/${tournament.id}`)
-    } catch (e) {
+    } catch {
       setError('Error al iniciar sesión')
     } finally {
       setLoading(false)

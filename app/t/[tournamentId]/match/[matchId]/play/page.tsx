@@ -7,8 +7,6 @@ import { FIBA_RULES } from '@/types'
 import type { TournamentEventType, MatchPlayer, TournamentEvent } from '@/types'
 import { Button } from '@/components/ui/button'
 
-const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === 'true'
-
 // ── Court SVG (shot-chart only, no tap-to-register) ───────────────────────────
 
 const CW = 300

@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
@@ -6,9 +6,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useSessionStore } from '@/store/tournamentStore'
+import { getTournamentMatches } from '@/lib/supabase/queries'
 import type { TournamentMatch } from '@/types'
-
-const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === 'true'
 
 const STATUS_LABEL: Record<string, string> = {
   pendiente: 'Pendiente',
@@ -31,10 +30,11 @@ export default function TournamentPage() {
   }, [tournamentId, session])
 
   async function load() {
-    if (USE_MOCK) {
-      const { mockGetTournamentMatches } = await import('@/lib/supabase/mock-db')
-      const data = await mockGetTournamentMatches(tournamentId)
+    try {
+      const data = await getTournamentMatches(tournamentId)
       setMatches(data)
+    } catch (e) {
+      console.error(e)
     }
   }
 
