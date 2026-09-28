@@ -122,7 +122,7 @@ export default function TeamsPage() {
   }
 
   return (
-    <main className="min-h-screen p-4 max-w-lg mx-auto">
+    <main className="min-h-screen p-4 sm:p-6 max-w-3xl mx-auto">
       <header className="mb-6 pt-4 flex items-center gap-3">
         <Link href="/dashboard">
           <Button variant="ghost" size="sm">← Volver</Button>

@@ -282,7 +282,7 @@ export default function SummaryPage() {
   }
 
   return (
-    <main className="min-h-screen p-4 max-w-lg mx-auto pb-10">
+    <main className="min-h-screen p-4 sm:p-6 max-w-3xl mx-auto pb-10">
       <header className="pt-4 mb-6">
         <h1 className="text-xl font-bold">Cierre del Partido</h1>
         <p className="text-xs text-muted-foreground">

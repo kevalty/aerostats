@@ -66,6 +66,18 @@ export default function SetupPage() {
     }
   }
 
+  async function handleDeleteMatch(id: string) {
+    if (!window.confirm('¿Eliminar este partido?')) return
+    try {
+      const { supabase } = await import('@/lib/supabase/client')
+      const { error } = await supabase.from('tournament_matches').delete().eq('id', id)
+      if (error) throw error
+      await loadData()
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
   async function handleAddVersus() {
     if (!versusForm.homeId || !versusForm.awayId || versusForm.homeId === versusForm.awayId) return
     try {
@@ -86,7 +98,7 @@ export default function SetupPage() {
   }
 
   return (
-    <main className="min-h-screen p-4 max-w-lg mx-auto">
+    <main className="min-h-screen p-4 sm:p-6 max-w-3xl mx-auto">
       <header className="pt-4 mb-6 flex items-center gap-3">
         <Button variant="ghost" size="sm" onClick={() => router.push(`/t/${tournamentId}`)}>←</Button>
         <h1 className="text-xl font-bold">Equipos y Versus</h1>
@@ -167,6 +179,16 @@ export default function SetupPage() {
                     </p>
                   )}
                   <p className="text-xs text-muted-foreground capitalize">{m.status}</p>
+                  {m.status === 'pendiente' && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive text-xs h-7 mt-1"
+                      onClick={() => handleDeleteMatch(m.id)}
+                    >
+                      Quitar
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             ))}

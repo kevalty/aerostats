@@ -244,7 +244,7 @@ export default function MatchConfigPage() {
   }
 
   return (
-    <main className="min-h-screen p-4 max-w-lg mx-auto pb-24">
+    <main className="min-h-screen p-4 sm:p-6 max-w-3xl mx-auto pb-24">
       <header className="pt-4 mb-6 flex items-center gap-3">
         <Button variant="ghost" size="sm" onClick={() => router.push(`/t/${tournamentId}`)}>←</Button>
         <div>
@@ -336,7 +336,7 @@ export default function MatchConfigPage() {
 
       {/* Fixed bottom bar */}
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t border-border">
-        <div className="max-w-lg mx-auto">
+        <div className="max-w-3xl mx-auto">
           {!canStart && (
             <p className="text-xs text-muted-foreground text-center mb-2">
               {!officials.arbitro_principal.trim()

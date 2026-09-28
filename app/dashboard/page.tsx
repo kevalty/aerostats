@@ -46,7 +46,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="min-h-screen p-4 max-w-lg mx-auto">
+    <main className="min-h-screen p-4 sm:p-6 max-w-3xl mx-auto">
       <header className="mb-6 pt-4">
         <h1 className="text-3xl font-bold text-primary">AroStats</h1>
         <p className="text-muted-foreground text-sm mt-1">Planillaje deportivo interactivo</p>

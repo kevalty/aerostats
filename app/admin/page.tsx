@@ -24,6 +24,7 @@ export default function AdminPage() {
   const [newCreds, setNewCreds] = useState<{ username: string; password: string; nombre: string } | null>(null)
   const [credsDialogOpen, setCredsDialogOpen] = useState(false)
   const [creating, setCreating] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   async function load() {
     try {
@@ -60,6 +61,35 @@ export default function AdminPage() {
     }
   }
 
+  async function handleDeleteTournament(id: string, nombre: string) {
+    if (!window.confirm(`¿Eliminar el torneo "${nombre}"? Esta acción no se puede deshacer.`)) return
+    try {
+      const { supabase } = await import('@/lib/supabase/client')
+      const { error } = await supabase.from('tournaments').delete().eq('id', id)
+      if (error) throw error
+      await load()
+    } catch (e) {
+      console.error(e)
+      alert('Error al eliminar el torneo')
+    }
+  }
+
+  async function handleShare() {
+    if (!newCreds) return
+    const text = `Torneo: ${newCreds.nombre}\nUsuario: ${newCreds.username}\nContraseña: ${newCreds.password}\nIngresá en: /login`
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'AroStats - Credenciales', text })
+      } catch (_) {
+        // user dismissed share sheet — no-op
+      }
+    } else {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
   const statusColor: Record<string, string> = {
     activo: 'default',
     finalizado: 'secondary',
@@ -67,7 +97,7 @@ export default function AdminPage() {
   }
 
   return (
-    <main className="min-h-screen p-4 max-w-lg mx-auto">
+    <main className="min-h-screen p-4 sm:p-6 max-w-3xl mx-auto">
       <header className="pt-4 mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-primary">Panel Admin</h1>
@@ -100,7 +130,17 @@ export default function AdminPage() {
                       {new Date(t.created_at).toLocaleDateString('es-ES')}
                     </p>
                   </div>
-                  <Badge variant={statusColor[t.status] as any}>{t.status}</Badge>
+                  <div className="flex flex-col items-end gap-1">
+                    <Badge variant={statusColor[t.status] as any}>{t.status}</Badge>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10 h-6 px-2 text-xs"
+                      onClick={() => handleDeleteTournament(t.id, t.nombre)}
+                    >
+                      Eliminar
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -165,6 +205,9 @@ export default function AdminPage() {
               <p className="text-xs text-muted-foreground text-center">
                 URL de acceso: <strong>/login</strong>
               </p>
+              <Button variant="outline" className="w-full" onClick={handleShare}>
+                {copied ? '¡Copiado!' : 'Compartir'}
+              </Button>
               <Button className="w-full" onClick={() => setCredsDialogOpen(false)}>
                 Entendido, ya guardé las credenciales
               </Button>

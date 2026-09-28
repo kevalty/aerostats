@@ -50,7 +50,7 @@ export default function TournamentPage() {
   }
 
   return (
-    <main className="min-h-screen p-4 max-w-lg mx-auto">
+    <main className="min-h-screen p-4 sm:p-6 max-w-3xl mx-auto">
       <header className="pt-4 mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold">{session?.tournament_nombre}</h1>

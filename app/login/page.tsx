@@ -41,7 +41,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-4">
+    <main className="min-h-screen flex items-center justify-center p-4 sm:p-6">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center pb-2">
           <h1 className="text-2xl font-bold text-primary">AroStats</h1>
