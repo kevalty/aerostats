@@ -1,8 +1,9 @@
 import type { Metadata, Viewport } from 'next'
-import { Geist } from 'next/font/google'
+import { Geist, Outfit } from 'next/font/google'
 import './globals.css'
 
 const geist = Geist({ subsets: ['latin'], variable: '--font-sans' })
+const outfit = Outfit({ subsets: ['latin'], variable: '--font-display', weight: ['400','600','700','800','900'] })
 
 export const metadata: Metadata = {
   title: 'AroStats',
@@ -15,13 +16,13 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: '#0A0A0B',
+  themeColor: '#060C1A',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
-      <body className={`${geist.variable} antialiased min-h-screen`}>
+      <body className={`${geist.variable} ${outfit.variable} antialiased min-h-screen`}>
         {children}
       </body>
     </html>

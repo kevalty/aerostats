@@ -97,56 +97,85 @@ export default function AdminPage() {
   }
 
   return (
-    <main className="min-h-screen p-4 sm:p-6 max-w-3xl mx-auto">
-      <header className="pt-4 mb-6 flex items-center justify-between">
+    <main className="min-h-screen p-4 sm:p-6 lg:p-10 max-w-5xl mx-auto">
+      {/* Header */}
+      <header className="pt-6 mb-8 flex items-end justify-between border-b border-border/40 pb-6">
         <div>
-          <h1 className="text-2xl font-bold text-primary">Panel Admin</h1>
-          <p className="text-xs text-muted-foreground">AroStats · Gestión de torneos</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-primary mb-1">AroStats</p>
+          <h1 className="text-3xl font-black tracking-tight">Panel Admin</h1>
+          <p className="text-muted-foreground text-sm mt-1">Gestión de torneos</p>
         </div>
-        <a href="/login" className="text-xs text-muted-foreground hover:text-foreground underline">
-          ← Login operador
-        </a>
+        <div className="flex items-center gap-3">
+          <a href="/login" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+            ← Operador
+          </a>
+          <Button onClick={() => setDialogOpen(true)} className="font-semibold">
+            + Nuevo Torneo
+          </Button>
+        </div>
       </header>
 
-      <Button className="w-full mb-6" onClick={() => setDialogOpen(true)}>
-        + Crear Torneo
-      </Button>
-
-      <div className="space-y-3">
-        {tournaments.length === 0 ? (
-          <p className="text-muted-foreground text-sm text-center py-8">Sin torneos aún</p>
-        ) : (
-          tournaments.map((t) => (
-            <Card key={t.id}>
-              <CardContent className="py-3 px-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="font-medium">{t.nombre}</p>
-                    <p className="text-xs text-muted-foreground font-mono mt-1">
-                      {t.op_username}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {t.max_partidos} partido{t.max_partidos !== 1 ? 's' : ''} ·{' '}
-                      {new Date(t.created_at).toLocaleDateString('es-ES')}
-                    </p>
-                  </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <Badge variant={statusColor[t.status] as any}>{t.status}</Badge>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-destructive hover:text-destructive hover:bg-destructive/10 h-6 px-2 text-xs"
-                      onClick={() => handleDeleteTournament(t.id, t.nombre)}
-                    >
-                      Eliminar
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
+      {/* Stats bar */}
+      <div className="grid grid-cols-3 gap-3 mb-8">
+        {[
+          { label: 'Total', value: tournaments.length },
+          { label: 'Activos', value: tournaments.filter(t => t.status === 'activo').length },
+          { label: 'Finalizados', value: tournaments.filter(t => t.status === 'finalizado').length },
+        ].map((s) => (
+          <div key={s.label} className="rounded-xl border border-border/60 bg-card p-4 text-center">
+            <div className="text-2xl font-black text-foreground">{s.value}</div>
+            <div className="text-xs uppercase tracking-widest text-muted-foreground mt-1">{s.label}</div>
+          </div>
+        ))}
       </div>
+
+      {/* Tournament grid */}
+      {tournaments.length === 0 ? (
+        <div className="text-center py-24 text-muted-foreground">
+          <div className="text-5xl mb-4 opacity-20">🏆</div>
+          <p className="text-sm">Sin torneos aún. Creá el primero.</p>
+        </div>
+      ) : (
+        <div className="grid sm:grid-cols-2 gap-4">
+          {tournaments.map((t) => (
+            <div key={t.id} className="rounded-xl border border-border/60 bg-card overflow-hidden hover:border-primary/30 transition-colors group">
+              {/* Top accent bar */}
+              <div className="h-0.5 w-full" style={{
+                background: t.status === 'activo'
+                  ? 'linear-gradient(90deg, oklch(0.57 0.22 262), oklch(0.65 0.18 205))'
+                  : t.status === 'finalizado'
+                  ? 'oklch(0.52 0.025 250)'
+                  : 'oklch(0.62 0.22 27)'
+              }} />
+              <div className="p-5">
+                <div className="flex items-start justify-between gap-2 mb-3">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-base truncate">{t.nombre}</h3>
+                    <p className="font-mono text-xs text-muted-foreground mt-0.5">{t.op_username}</p>
+                  </div>
+                  <Badge variant={statusColor[t.status] as any} className="flex-shrink-0 text-xs">
+                    {t.status}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>{t.max_partidos} partido{t.max_partidos !== 1 ? 's' : ''}</span>
+                  <span>{new Date(t.created_at).toLocaleDateString('es-ES')}</span>
+                </div>
+                <div className="flex gap-2 mt-4 pt-3 border-t border-border/30">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="flex-1 text-xs h-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => handleDeleteTournament(t.id, t.nombre)}
+                  >
+                    Eliminar
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Create tournament dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

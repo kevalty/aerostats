@@ -50,91 +50,94 @@ export default function TournamentPage() {
   }
 
   return (
-    <main className="min-h-screen p-4 sm:p-6 max-w-3xl mx-auto">
-      <header className="pt-4 mb-6 flex items-center justify-between">
+    <main className="min-h-screen p-4 sm:p-6 lg:p-10 max-w-4xl mx-auto">
+      <header className="pt-6 mb-8 flex items-end justify-between border-b border-border/40 pb-6">
         <div>
-          <h1 className="text-xl font-bold">{session?.tournament_nombre}</h1>
-          <p className="text-xs text-muted-foreground">Operador: {session?.op_username}</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-primary mb-1">Torneo</p>
+          <h1 className="text-2xl font-black tracking-tight">{session?.tournament_nombre}</h1>
+          <p className="text-xs text-muted-foreground mt-1">op: {session?.op_username}</p>
         </div>
-        <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground">
-          Salir
+        <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground text-xs">
+          Salir →
         </Button>
       </header>
 
       <Button
-        className="w-full mb-6"
+        className="w-full mb-8 h-11 font-semibold"
         variant="outline"
         onClick={() => router.push(`/t/${tournamentId}/setup`)}
       >
         Gestionar Equipos y Versus
       </Button>
 
-      <section>
-        <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-          Partidos del Torneo
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          Partidos ({matches.length})
         </h2>
-        {matches.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-8">
-            Sin partidos aun. Crea los versus en "Gestionar Equipos y Versus".
-          </p>
-        ) : (
-          <div className="space-y-2">
-            {matches.map((m) => (
-              <Card key={m.id} className={m.status === 'en_curso' ? 'border-primary' : ''}>
-                <CardContent className="py-3 px-4 flex items-center justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">
-                      #{m.match_order} · {m.team_home?.nombre ?? '?'} vs {m.team_away?.nombre ?? '?'}
-                    </p>
-                    {m.scheduled_at && (
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(m.scheduled_at).toLocaleString('es-ES', {
-                          weekday: 'short', day: 'numeric', month: 'short',
-                          hour: '2-digit', minute: '2-digit'
-                        })}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <Badge variant={statusVariant[m.status] as any}>
-                      {STATUS_LABEL[m.status]}
-                    </Badge>
-                    {m.status === 'pendiente' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-xs h-7"
-                        onClick={() => router.push(`/t/${tournamentId}/match/${m.id}/config`)}
-                      >
-                        Configurar
-                      </Button>
-                    )}
+      </div>
+
+      {matches.length === 0 ? (
+        <div className="text-center py-20 text-muted-foreground">
+          <div className="text-4xl mb-4 opacity-20">🏀</div>
+          <p className="text-sm">Sin partidos. Crea los versus en "Gestionar Equipos y Versus".</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {matches.map((m) => (
+            <div
+              key={m.id}
+              className={`rounded-xl border bg-card overflow-hidden transition-colors ${
+                m.status === 'en_curso' ? 'border-primary/50' : 'border-border/60 hover:border-border'
+              }`}
+            >
+              {m.status === 'en_curso' && (
+                <div className="h-0.5" style={{ background: 'linear-gradient(90deg, oklch(0.57 0.22 262), oklch(0.65 0.18 205))' }} />
+              )}
+              <div className="p-4 flex items-center justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="text-xs text-muted-foreground font-mono">#{m.match_order}</span>
                     {m.status === 'en_curso' && (
-                      <Button
-                        size="sm"
-                        className="text-xs h-7"
-                        onClick={() => router.push(`/t/${tournamentId}/match/${m.id}/play`)}
-                      >
-                        Retomar
-                      </Button>
-                    )}
-                    {m.status === 'finalizado' && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-xs h-7"
-                        onClick={() => router.push(`/t/${tournamentId}/match/${m.id}/summary`)}
-                      >
-                        Ver resumen
-                      </Button>
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary">
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                        En curso
+                      </span>
                     )}
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </section>
+                  <p className="font-semibold text-sm truncate">
+                    {m.team_home?.nombre ?? '?'} <span className="text-muted-foreground font-normal">vs</span> {m.team_away?.nombre ?? '?'}
+                  </p>
+                  {m.scheduled_at && (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {new Date(m.scheduled_at).toLocaleString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {m.status === 'pendiente' && (
+                    <Button size="sm" variant="outline" className="text-xs h-8"
+                      onClick={() => router.push(`/t/${tournamentId}/match/${m.id}/config`)}>
+                      Configurar
+                    </Button>
+                  )}
+                  {m.status === 'en_curso' && (
+                    <Button size="sm" className="text-xs h-8 font-semibold"
+                      onClick={() => router.push(`/t/${tournamentId}/match/${m.id}/play`)}>
+                      Retomar →
+                    </Button>
+                  )}
+                  {m.status === 'finalizado' && (
+                    <Button size="sm" variant="ghost" className="text-xs h-8 text-muted-foreground"
+                      onClick={() => router.push(`/t/${tournamentId}/match/${m.id}/summary`)}>
+                      Ver resumen
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </main>
   )
 }
