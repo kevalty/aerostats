@@ -1,20 +1,21 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { getTournaments, createTournament } from '@/lib/supabase/queries'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { getTournaments, createTournament, updateTournament, deleteTournamentCascade } from '@/lib/supabase/queries'
 import type { Tournament } from '@/types'
 
 function generateCredentials(nombre: string) {
   const slug = nombre.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').slice(0, 20)
   const suffix = Math.random().toString(36).slice(2, 6)
-  const username = `${slug}-${suffix}`
-  const password = Math.random().toString(36).slice(2, 10).toUpperCase()
-  return { username, password }
+  return {
+    username: `${slug}-${suffix}`,
+    password: Math.random().toString(36).slice(2, 10).toUpperCase(),
+  }
 }
 
 export default function AdminPage() {
@@ -25,6 +26,15 @@ export default function AdminPage() {
   const [credsDialogOpen, setCredsDialogOpen] = useState(false)
   const [creating, setCreating] = useState(false)
   const [copied, setCopied] = useState(false)
+
+  // Edit state
+  const [editTarget, setEditTarget] = useState<Tournament | null>(null)
+  const [editForm, setEditForm] = useState({ nombre: '', max_partidos: '', status: '' })
+  const [saving, setSaving] = useState(false)
+
+  // Delete state
+  const [deleteTarget, setDeleteTarget] = useState<Tournament | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   async function load() {
     try {
@@ -61,16 +71,40 @@ export default function AdminPage() {
     }
   }
 
-  async function handleDeleteTournament(id: string, nombre: string) {
-    if (!window.confirm(`¿Eliminar el torneo "${nombre}"? Esta acción no se puede deshacer.`)) return
+  function openEdit(t: Tournament) {
+    setEditTarget(t)
+    setEditForm({ nombre: t.nombre, max_partidos: String(t.max_partidos), status: t.status })
+  }
+
+  async function handleSaveEdit() {
+    if (!editTarget || !editForm.nombre.trim()) return
+    setSaving(true)
     try {
-      const { supabase } = await import('@/lib/supabase/client')
-      const { error } = await supabase.from('tournaments').delete().eq('id', id)
-      if (error) throw error
+      await updateTournament(editTarget.id, {
+        nombre: editForm.nombre.trim(),
+        max_partidos: parseInt(editForm.max_partidos) || editTarget.max_partidos,
+        status: editForm.status as Tournament['status'],
+      })
+      setEditTarget(null)
       await load()
     } catch (e) {
       console.error(e)
-      alert('Error al eliminar el torneo')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDelete() {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      await deleteTournamentCascade(deleteTarget.id)
+      setDeleteTarget(null)
+      await load()
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -78,11 +112,7 @@ export default function AdminPage() {
     if (!newCreds) return
     const text = `Torneo: ${newCreds.nombre}\nUsuario: ${newCreds.username}\nContraseña: ${newCreds.password}\nIngresá en: /login`
     if (navigator.share) {
-      try {
-        await navigator.share({ title: 'AroStats - Credenciales', text })
-      } catch (_) {
-        // user dismissed share sheet — no-op
-      }
+      try { await navigator.share({ title: 'AroStats - Credenciales', text }) } catch (_) {}
     } else {
       await navigator.clipboard.writeText(text)
       setCopied(true)
@@ -106,12 +136,8 @@ export default function AdminPage() {
           <p className="text-muted-foreground text-sm mt-1">Gestión de torneos</p>
         </div>
         <div className="flex items-center gap-3">
-          <a href="/login" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-            ← Operador
-          </a>
-          <Button onClick={() => setDialogOpen(true)} className="font-semibold">
-            + Nuevo Torneo
-          </Button>
+          <a href="/login" className="text-xs text-muted-foreground hover:text-foreground transition-colors">← Operador</a>
+          <Button onClick={() => setDialogOpen(true)} className="font-semibold">+ Nuevo Torneo</Button>
         </div>
       </header>
 
@@ -138,14 +164,11 @@ export default function AdminPage() {
       ) : (
         <div className="grid sm:grid-cols-2 gap-4">
           {tournaments.map((t) => (
-            <div key={t.id} className="rounded-xl border border-border/60 bg-card overflow-hidden hover:border-primary/30 transition-colors group">
-              {/* Top accent bar */}
+            <div key={t.id} className="rounded-xl border border-border/60 bg-card overflow-hidden hover:border-primary/30 transition-colors">
               <div className="h-0.5 w-full" style={{
                 background: t.status === 'activo'
                   ? 'linear-gradient(90deg, oklch(0.57 0.22 262), oklch(0.65 0.18 205))'
-                  : t.status === 'finalizado'
-                  ? 'oklch(0.52 0.025 250)'
-                  : 'oklch(0.62 0.22 27)'
+                  : t.status === 'finalizado' ? 'oklch(0.52 0.025 250)' : 'oklch(0.62 0.22 27)'
               }} />
               <div className="p-5">
                 <div className="flex items-start justify-between gap-2 mb-3">
@@ -153,9 +176,7 @@ export default function AdminPage() {
                     <h3 className="font-bold text-base truncate">{t.nombre}</h3>
                     <p className="font-mono text-xs text-muted-foreground mt-0.5">{t.op_username}</p>
                   </div>
-                  <Badge variant={statusColor[t.status] as any} className="flex-shrink-0 text-xs">
-                    {t.status}
-                  </Badge>
+                  <Badge variant={statusColor[t.status] as any} className="flex-shrink-0 text-xs">{t.status}</Badge>
                 </div>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <span>{t.max_partidos} partido{t.max_partidos !== 1 ? 's' : ''}</span>
@@ -165,8 +186,16 @@ export default function AdminPage() {
                   <Button
                     variant="ghost"
                     size="sm"
+                    className="flex-1 text-xs h-8"
+                    onClick={() => openEdit(t)}
+                  >
+                    Editar
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     className="flex-1 text-xs h-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                    onClick={() => handleDeleteTournament(t.id, t.nombre)}
+                    onClick={() => setDeleteTarget(t)}
                   >
                     Eliminar
                   </Button>
@@ -180,27 +209,15 @@ export default function AdminPage() {
       {/* Create tournament dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Nuevo Torneo</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Nuevo Torneo</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <label className="text-sm font-medium">Nombre del torneo</label>
-              <Input
-                value={form.nombre}
-                onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))}
-                placeholder="Copa Ciudad 2026"
-              />
+              <Input value={form.nombre} onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))} placeholder="Copa Ciudad 2026" />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Cantidad de partidos</label>
-              <Input
-                type="number"
-                min="1"
-                max="100"
-                value={form.max_partidos}
-                onChange={(e) => setForm((f) => ({ ...f, max_partidos: e.target.value }))}
-              />
+              <Input type="number" min="1" max="100" value={form.max_partidos} onChange={(e) => setForm((f) => ({ ...f, max_partidos: e.target.value }))} />
             </div>
             <Button className="w-full" onClick={handleCreate} disabled={creating || !form.nombre.trim()}>
               {creating ? 'Creando...' : 'Crear y generar credenciales'}
@@ -209,17 +226,67 @@ export default function AdminPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Edit tournament dialog */}
+      <Dialog open={!!editTarget} onOpenChange={(o) => { if (!o) setEditTarget(null) }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Editar Torneo</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Nombre</label>
+              <Input value={editForm.nombre} onChange={(e) => setEditForm((f) => ({ ...f, nombre: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Cantidad de partidos</label>
+              <Input type="number" min="1" max="100" value={editForm.max_partidos} onChange={(e) => setEditForm((f) => ({ ...f, max_partidos: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Estado</label>
+              <Select value={editForm.status} onValueChange={(v) => setEditForm((f) => ({ ...f, status: v ?? f.status }))}>
+                <SelectTrigger className="w-full">
+                  <SelectValue>{editForm.status || null}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="activo">Activo</SelectItem>
+                  <SelectItem value="finalizado">Finalizado</SelectItem>
+                  <SelectItem value="expirado">Expirado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button className="w-full" onClick={handleSaveEdit} disabled={saving || !editForm.nombre.trim()}>
+              {saving ? 'Guardando...' : 'Guardar cambios'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirm dialog */}
+      <Dialog open={!!deleteTarget} onOpenChange={(o) => { if (!o && !deleting) setDeleteTarget(null) }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Eliminar Torneo</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Vas a eliminar <strong className="text-foreground">{deleteTarget?.nombre}</strong> junto con todos sus equipos, partidos y estadísticas. Esta acción no se puede deshacer.
+            </p>
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1" onClick={() => setDeleteTarget(null)} disabled={deleting}>
+                Cancelar
+              </Button>
+              <Button variant="destructive" className="flex-1" onClick={handleDelete} disabled={deleting}>
+                {deleting ? 'Eliminando...' : 'Eliminar todo'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Credentials reveal dialog */}
       <Dialog open={credsDialogOpen} onOpenChange={setCredsDialogOpen}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Torneo creado — Guardar credenciales</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Torneo creado — Guardar credenciales</DialogTitle></DialogHeader>
           {newCreds && (
             <div className="space-y-4 py-2">
               <p className="text-sm text-muted-foreground">
-                Compartí estas credenciales con el operador de <strong>{newCreds.nombre}</strong>.
-                No se volverán a mostrar.
+                Compartí estas credenciales con el operador de <strong>{newCreds.nombre}</strong>. No se volverán a mostrar.
               </p>
               <div className="rounded-lg bg-muted p-4 space-y-2 font-mono text-sm">
                 <div className="flex justify-between">
@@ -231,9 +298,7 @@ export default function AdminPage() {
                   <span className="font-bold select-all">{newCreds.password}</span>
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground text-center">
-                URL de acceso: <strong>/login</strong>
-              </p>
+              <p className="text-xs text-muted-foreground text-center">URL de acceso: <strong>/login</strong></p>
               <Button variant="outline" className="w-full" onClick={handleShare}>
                 {copied ? '¡Copiado!' : 'Compartir'}
               </Button>

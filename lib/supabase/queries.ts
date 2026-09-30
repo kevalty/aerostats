@@ -137,6 +137,32 @@ export async function createTournament(t: Omit<Tournament, 'id' | 'created_at'>)
   return data
 }
 
+export async function updateTournament(id: string, patch: Partial<Pick<Tournament, 'nombre' | 'max_partidos' | 'status'>>): Promise<void> {
+  const supabase = await db()
+  const { error } = await supabase.from('tournaments').update(patch).eq('id', id)
+  if (error) throw error
+}
+
+export async function deleteTournamentCascade(id: string): Promise<void> {
+  const supabase = await db()
+  // Get all match ids for this tournament
+  const { data: matches } = await supabase.from('tournament_matches').select('id').eq('tournament_id', id)
+  const matchIds = (matches ?? []).map((m: { id: string }) => m.id)
+
+  if (matchIds.length > 0) {
+    // Delete all child records per match in dependency order
+    await supabase.from('tournament_events').delete().in('tournament_match_id', matchIds)
+    await supabase.from('match_players').delete().in('tournament_match_id', matchIds)
+    await supabase.from('match_signatures').delete().in('tournament_match_id', matchIds)
+    await supabase.from('match_configs').delete().in('tournament_match_id', matchIds)
+    await supabase.from('tournament_matches').delete().in('id', matchIds)
+  }
+
+  await supabase.from('tournament_teams').delete().eq('tournament_id', id)
+  const { error } = await supabase.from('tournaments').delete().eq('id', id)
+  if (error) throw error
+}
+
 export async function authOperator(username: string, password: string): Promise<Tournament | null> {
   const supabase = await db()
   const { data, error } = await supabase
