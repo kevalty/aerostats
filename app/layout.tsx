@@ -8,7 +8,6 @@ const outfit = Outfit({ subsets: ['latin'], variable: '--font-display', weight: 
 export const metadata: Metadata = {
   title: 'AroStats',
   description: 'Planillaje deportivo interactivo',
-  manifest: '/manifest.json',
 }
 
 export const viewport: Viewport = {
