@@ -358,6 +358,93 @@ function PlanillaTab({ players, events, label, color }: {
   )
 }
 
+// ── Timeout beep (Web Audio API) ──────────────────────────────────────────────
+
+function playBeep(frequency = 880, duration = 0.18, volume = 0.35) {
+  try {
+    const ctx = new AudioContext()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.type = 'sine'
+    osc.frequency.value = frequency
+    gain.gain.setValueAtTime(volume, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration)
+    osc.start(ctx.currentTime)
+    osc.stop(ctx.currentTime + duration)
+  } catch (_) {}
+}
+
+// ── Timeout overlay ───────────────────────────────────────────────────────────
+
+const FIBA_TIMEOUT_SECONDS = 60
+
+function TimeoutOverlay({
+  seconds,
+  teamName,
+  color,
+  onClose,
+}: {
+  seconds: number
+  teamName: string
+  color: string
+  onClose: () => void
+}) {
+  const isHalf = seconds === FIBA_TIMEOUT_SECONDS / 2
+  const progress = seconds / FIBA_TIMEOUT_SECONDS
+  const radius = 54
+  const circ = 2 * Math.PI * radius
+  const dash = circ * progress
+
+  return (
+    <div className="fixed inset-0 z-[70] flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm">
+      <div className="flex flex-col items-center gap-4">
+        {/* Team label */}
+        <p className="text-xs font-black uppercase tracking-[0.2em]" style={{ color }}>
+          {teamName} — Tiempo Fuera
+        </p>
+
+        {/* Circular progress + countdown */}
+        <div className="relative w-36 h-36 flex items-center justify-center">
+          <svg viewBox="0 0 120 120" className="absolute inset-0 w-full h-full -rotate-90">
+            <circle cx="60" cy="60" r={radius} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="6" />
+            <circle
+              cx="60" cy="60" r={radius} fill="none"
+              stroke={color} strokeWidth="6"
+              strokeDasharray={`${dash} ${circ}`}
+              strokeLinecap="round"
+              style={{ transition: 'stroke-dasharray 1s linear' }}
+            />
+          </svg>
+          <div className="flex flex-col items-center">
+            <span className="text-5xl font-black tabular-nums leading-none text-foreground">{seconds}</span>
+            <span className="text-xs text-muted-foreground uppercase tracking-widest mt-1">seg</span>
+          </div>
+        </div>
+
+        {/* Half-time warning */}
+        {seconds <= FIBA_TIMEOUT_SECONDS / 2 && seconds > 0 && (
+          <div className="flex items-center gap-2 px-4 py-1.5 rounded-full border border-border/60 bg-card/60">
+            <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: color }} />
+            <p className="text-xs font-semibold uppercase tracking-widest text-foreground">Mitad del tiempo</p>
+          </div>
+        )}
+        {seconds === 0 && (
+          <p className="text-sm font-black uppercase tracking-widest text-destructive animate-pulse">¡Fin del tiempo fuera!</p>
+        )}
+
+        <button
+          onClick={onClose}
+          className="mt-2 px-6 py-2 rounded-xl border border-border/60 bg-card/60 text-xs font-semibold uppercase tracking-widest text-muted-foreground hover:text-foreground"
+        >
+          Cerrar
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ── Scoreboard ────────────────────────────────────────────────────────────────
 
 function TimeoutDots({ used, total, color }: { used: number; total: number; color: string }) {
@@ -394,8 +481,10 @@ export default function PlayPage() {
   const [notification, setNotification] = useState<string | null>(null)
   const [bonusShownHome, setBonusShownHome] = useState(false)
   const [bonusShownAway, setBonusShownAway] = useState(false)
+  const [timeoutActive, setTimeoutActive] = useState<{ seconds: number; team: 'home' | 'away' } | null>(null)
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const timeoutIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
     if (!session || session.tournament_id !== tournamentId) { router.push('/login'); return }
@@ -429,6 +518,37 @@ export default function PlayPage() {
 
   function formatClock(s: number) {
     return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
+  }
+
+  function handleTimeout(home: boolean) {
+    const left = getTimeoutsLeft(home)
+    if (left <= 0) return
+    useTimeout(home)
+    if (timeoutIntervalRef.current) clearInterval(timeoutIntervalRef.current)
+    setTimeoutActive({ seconds: FIBA_TIMEOUT_SECONDS, team: home ? 'home' : 'away' })
+    playBeep(880, 0.2)
+    let remaining = FIBA_TIMEOUT_SECONDS
+    timeoutIntervalRef.current = setInterval(() => {
+      remaining -= 1
+      if (remaining === FIBA_TIMEOUT_SECONDS / 2) {
+        playBeep(660, 0.15)
+        playBeep(880, 0.15)
+      }
+      if (remaining <= 0) {
+        clearInterval(timeoutIntervalRef.current!)
+        playBeep(440, 0.3)
+        setTimeout(() => playBeep(440, 0.3), 350)
+        setTimeoutActive((prev) => prev ? { ...prev, seconds: 0 } : null)
+        setTimeout(() => setTimeoutActive(null), 1500)
+        return
+      }
+      setTimeoutActive((prev) => prev ? { ...prev, seconds: remaining } : null)
+    }, 1000)
+  }
+
+  function dismissTimeout() {
+    if (timeoutIntervalRef.current) clearInterval(timeoutIntervalRef.current)
+    setTimeoutActive(null)
   }
 
   function handleAction(action: ActionOption) {
@@ -622,11 +742,11 @@ export default function PlayPage() {
           </div>
 
           {/* Bottom controls */}
-          <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2.5 border-t border-border/50 bg-card">
+          <div className="flex-shrink-0 flex items-center justify-between gap-2 px-3 py-2 border-t border-border/50 bg-card">
             <button
-              onClick={() => useTimeout(true)}
+              onClick={() => handleTimeout(true)}
               disabled={timeoutsHomeLeft <= 0}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-semibold uppercase tracking-wide transition-all disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg border text-[11px] font-bold uppercase tracking-wide transition-all disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
               style={{ borderColor: colorHome + '60', color: colorHome, backgroundColor: colorHome + '10' }}
             >
               T/O <span className="font-black">{timeoutsHomeLeft}</span>
@@ -634,7 +754,7 @@ export default function PlayPage() {
 
             <button
               onClick={handleNextQuarter}
-              className={`flex-1 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all active:scale-95 ${
+              className={`px-4 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-widest transition-all active:scale-95 ${
                 cuarto >= 4
                   ? 'bg-destructive text-destructive-foreground'
                   : 'bg-primary text-primary-foreground'
@@ -644,9 +764,9 @@ export default function PlayPage() {
             </button>
 
             <button
-              onClick={() => useTimeout(false)}
+              onClick={() => handleTimeout(false)}
               disabled={timeoutsAwayLeft <= 0}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-semibold uppercase tracking-wide transition-all disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg border text-[11px] font-bold uppercase tracking-wide transition-all disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
               style={{ borderColor: colorAway + '60', color: colorAway, backgroundColor: colorAway + '10' }}
             >
               <span className="font-black">{timeoutsAwayLeft}</span> T/O
@@ -684,6 +804,16 @@ export default function PlayPage() {
 
       {/* FIBA notification */}
       {notification && <Notification message={notification} onClose={() => setNotification(null)} />}
+
+      {/* Timeout overlay */}
+      {timeoutActive && (
+        <TimeoutOverlay
+          seconds={timeoutActive.seconds}
+          teamName={timeoutActive.team === 'home' ? (teamHome?.nombre ?? '') : (teamAway?.nombre ?? '')}
+          color={timeoutActive.team === 'home' ? colorHome : colorAway}
+          onClose={dismissTimeout}
+        />
+      )}
 
     </div>
   )
