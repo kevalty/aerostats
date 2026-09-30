@@ -17,7 +17,8 @@ import type { TournamentTeam, TournamentMatch } from '@/types'
 export default function SetupPage() {
   const { tournamentId } = useParams<{ tournamentId: string }>()
   const router = useRouter()
-  const { session, _hasHydrated } = useSessionStore((s) => ({ session: s.session, _hasHydrated: s._hasHydrated }))
+  const session = useSessionStore((s) => s.session)
+  const _hasHydrated = useSessionStore((s) => s._hasHydrated)
 
   const [teams, setTeams] = useState<TournamentTeam[]>([])
   const [matches, setMatches] = useState<TournamentMatch[]>([])
