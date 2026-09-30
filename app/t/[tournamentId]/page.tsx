@@ -18,16 +18,17 @@ const STATUS_LABEL: Record<string, string> = {
 export default function TournamentPage() {
   const { tournamentId } = useParams<{ tournamentId: string }>()
   const router = useRouter()
-  const { session, logout } = useSessionStore()
+  const { session, logout, _hasHydrated } = useSessionStore()
   const [matches, setMatches] = useState<TournamentMatch[]>([])
 
   useEffect(() => {
+    if (!_hasHydrated) return
     if (!session || session.tournament_id !== tournamentId) {
       router.push('/login')
       return
     }
     load()
-  }, [tournamentId, session])
+  }, [_hasHydrated, tournamentId, session])
 
   async function load() {
     try {

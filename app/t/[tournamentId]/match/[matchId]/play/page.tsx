@@ -403,7 +403,7 @@ function PortraitWarning() {
 export default function PlayPage() {
   const { tournamentId, matchId } = useParams<{ tournamentId: string; matchId: string }>()
   const router = useRouter()
-  const session = useSessionStore((s) => s.session)
+  const { session, _hasHydrated: sessionHydrated } = useSessionStore((s) => ({ session: s.session, _hasHydrated: s._hasHydrated }))
 
   const store = useLiveMatchStore()
   const {
@@ -423,6 +423,17 @@ export default function PlayPage() {
   const [bonusShownAway, setBonusShownAway] = useState(false)
   const [timeoutActive, setTimeoutActive] = useState<{ seconds: number; team: 'home' | 'away' } | null>(null)
   const [isPortrait, setIsPortrait] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+
+  function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen?.().catch(() => {})
+      setIsFullscreen(true)
+    } else {
+      document.exitFullscreen?.().catch(() => {})
+      setIsFullscreen(false)
+    }
+  }
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const timeoutIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -468,9 +479,10 @@ export default function PlayPage() {
 
   // Auth guard
   useEffect(() => {
+    if (!sessionHydrated) return
     if (!session || session.tournament_id !== tournamentId) { router.push('/login'); return }
     if (tournamentMatchId && tournamentMatchId !== matchId) router.push(`/t/${tournamentId}`)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sessionHydrated]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Clock ticker
   useEffect(() => {
@@ -583,7 +595,7 @@ export default function PlayPage() {
   }
 
   return (
-    <div className="h-screen w-screen flex flex-col overflow-hidden bg-background select-none">
+    <div className="h-screen w-screen flex flex-col overflow-hidden bg-background select-none" style={{ paddingLeft: 'env(safe-area-inset-left)', paddingRight: 'env(safe-area-inset-right)', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
 
       {/* Portrait warning */}
       {isPortrait && <PortraitWarning />}
@@ -826,13 +838,26 @@ export default function PlayPage() {
 
       {/* ── BOTTOM BAR ─────────────────────────────────────────────────────── */}
       <div
-        className="flex-shrink-0 flex items-center justify-center px-3 py-1.5"
+        className="flex-shrink-0 flex items-center justify-between px-3 py-1.5"
         style={{
           borderTop: '1px solid rgba(255,255,255,0.06)',
           background: 'rgba(0,0,0,0.25)',
           boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)',
         }}
       >
+        <button
+          onClick={toggleFullscreen}
+          className="px-3 py-1 rounded-lg text-[10px] font-semibold uppercase tracking-widest transition-all active:scale-95"
+          style={{
+            background: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            color: 'rgba(255,255,255,0.5)',
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06)',
+          }}
+        >
+          {isFullscreen ? 'Salir Mesa' : 'Modo Mesa ⊡'}
+        </button>
+
         <button
           onClick={handleNextQuarter}
           className="px-6 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all active:scale-95"
@@ -848,6 +873,8 @@ export default function PlayPage() {
         >
           {cuarto >= 4 ? 'Fin Partido →' : `Fin ${quarterLabel} →`}
         </button>
+
+        <div className="w-[80px]" /> {/* spacer to center the Fin button */}
       </div>
 
       {/* Action panel */}

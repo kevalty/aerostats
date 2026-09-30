@@ -7,23 +7,28 @@ import { FIBA_RULES } from '@/types'
 
 type SessionState = {
   session: OperatorSession | null
+  _hasHydrated: boolean
 }
 
 type SessionActions = {
   setSession: (session: OperatorSession) => void
   logout: () => void
+  setHasHydrated: (val: boolean) => void
 }
 
 export const useSessionStore = create<SessionState & SessionActions>()(
   persist(
     (set) => ({
       session: null,
+      _hasHydrated: false,
+      setHasHydrated: (val) => set({ _hasHydrated: val }),
       setSession: (session) => set({ session }),
       logout: () => set({ session: null }),
     }),
     {
       name: 'arostats-session',
       storage: createJSONStorage(() => localStorage),
+      onRehydrateStorage: () => (state) => { state?.setHasHydrated(true) },
     }
   )
 )

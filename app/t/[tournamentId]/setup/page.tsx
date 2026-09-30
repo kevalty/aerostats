@@ -17,7 +17,7 @@ import type { TournamentTeam, TournamentMatch } from '@/types'
 export default function SetupPage() {
   const { tournamentId } = useParams<{ tournamentId: string }>()
   const router = useRouter()
-  const session = useSessionStore((s) => s.session)
+  const { session, _hasHydrated } = useSessionStore((s) => ({ session: s.session, _hasHydrated: s._hasHydrated }))
 
   const [teams, setTeams] = useState<TournamentTeam[]>([])
   const [matches, setMatches] = useState<TournamentMatch[]>([])
@@ -29,9 +29,10 @@ export default function SetupPage() {
   const [versusForm, setVersusForm] = useState({ homeId: '', awayId: '', date: '', time: '' })
 
   useEffect(() => {
+    if (!_hasHydrated) return
     if (!session || session.tournament_id !== tournamentId) { router.push('/login'); return }
     loadData()
-  }, [tournamentId])
+  }, [_hasHydrated, tournamentId])
 
   async function loadData() {
     try {
