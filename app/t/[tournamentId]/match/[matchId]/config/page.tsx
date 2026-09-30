@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -24,13 +23,7 @@ function emptyPlayer(): PlayerForm {
 }
 
 function PlayerRow({
-  player,
-  onChange,
-  onRemove,
-  onToggleStarter,
-  onToggleCaptain,
-  startersCount,
-  hasCaptain,
+  player, onChange, onRemove, onToggleStarter, onToggleCaptain, startersCount, hasCaptain,
 }: {
   player: PlayerForm
   onChange: (p: Partial<PlayerForm>) => void
@@ -51,7 +44,7 @@ function PlayerRow({
         inputMode="numeric"
       />
       <Input
-        className="flex-1"
+        className="flex-1 uppercase"
         placeholder="Nombre del jugador"
         value={player.nombre}
         onChange={(e) => onChange({ nombre: e.target.value })}
@@ -73,7 +66,7 @@ function PlayerRow({
         disabled={!player.is_captain && hasCaptain}
         className={`w-8 h-8 rounded text-xs font-bold flex-shrink-0 transition-colors ${
           player.is_captain
-            ? 'bg-amber-500 text-black'
+            ? 'bg-primary text-primary-foreground'
             : 'bg-muted text-muted-foreground hover:bg-muted/80'
         } disabled:opacity-40`}
         title="Capitán"
@@ -90,6 +83,8 @@ function PlayerRow({
   )
 }
 
+type Tab = 'mesa' | 'home' | 'away'
+
 export default function MatchConfigPage() {
   const { tournamentId, matchId } = useParams<{ tournamentId: string; matchId: string }>()
   const router = useRouter()
@@ -97,6 +92,7 @@ export default function MatchConfigPage() {
   const initLiveMatch = useLiveMatchStore((s) => s.initLiveMatch)
 
   const [matchData, setMatchData] = useState<{ teamHome: TournamentTeam; teamAway: TournamentTeam } | null>(null)
+  const [activeTab, setActiveTab] = useState<Tab>('mesa')
   const [officials, setOfficials] = useState({
     arbitro_principal: '',
     arbitro_auxiliar: '',
@@ -124,11 +120,7 @@ export default function MatchConfigPage() {
     }
   }
 
-  function updatePlayer(
-    side: 'home' | 'away',
-    index: number,
-    patch: Partial<PlayerForm>
-  ) {
+  function updatePlayer(side: 'home' | 'away', index: number, patch: Partial<PlayerForm>) {
     const setter = side === 'home' ? setPlayersHome : setPlayersAway
     setter((prev) => prev.map((p, i) => (i === index ? { ...p, ...patch } : p)))
   }
@@ -136,21 +128,12 @@ export default function MatchConfigPage() {
   function toggleStarter(side: 'home' | 'away', index: number) {
     const players = side === 'home' ? playersHome : playersAway
     const p = players[index]
-    // If captain and unstarter, also uncaptain
-    updatePlayer(side, index, {
-      is_starter: !p.is_starter,
-      is_captain: !p.is_starter ? p.is_captain : false,
-    })
+    updatePlayer(side, index, { is_starter: !p.is_starter, is_captain: !p.is_starter ? p.is_captain : false })
   }
 
   function toggleCaptain(side: 'home' | 'away', index: number) {
     const setter = side === 'home' ? setPlayersHome : setPlayersAway
-    setter((prev) =>
-      prev.map((p, i) => ({
-        ...p,
-        is_captain: i === index ? !p.is_captain : false,
-      }))
-    )
+    setter((prev) => prev.map((p, i) => ({ ...p, is_captain: i === index ? !p.is_captain : false })))
   }
 
   function addPlayer(side: 'home' | 'away') {
@@ -168,14 +151,10 @@ export default function MatchConfigPage() {
   const captainHome = playersHome.some((p) => p.is_captain)
   const captainAway = playersAway.some((p) => p.is_captain)
 
-  const canStart =
-    startersHome === 5 &&
-    startersAway === 5 &&
-    captainHome &&
-    captainAway &&
-    playersHome.every((p) => p.nombre.trim() && p.numero) &&
-    playersAway.every((p) => p.nombre.trim() && p.numero) &&
-    !!officials.arbitro_principal.trim()
+  const mesaOk = !!officials.arbitro_principal.trim()
+  const homeOk = startersHome === 5 && captainHome && playersHome.every((p) => p.nombre.trim() && p.numero)
+  const awayOk = startersAway === 5 && captainAway && playersAway.every((p) => p.nombre.trim() && p.numero)
+  const canStart = mesaOk && homeOk && awayOk
 
   async function handleStart() {
     if (!canStart || !matchData) return
@@ -216,17 +195,7 @@ export default function MatchConfigPage() {
       }
 
       await updateTournamentMatchStatus(matchId, 'en_curso')
-
-      initLiveMatch(
-        matchId,
-        config,
-        matchData.teamHome,
-        matchData.teamAway,
-        savedHome,
-        savedAway,
-        []
-      )
-
+      initLiveMatch(matchId, config, matchData.teamHome, matchData.teamAway, savedHome, savedAway, [])
       router.push(`/t/${tournamentId}/match/${matchId}/play`)
     } catch (e) {
       console.error(e)
@@ -238,126 +207,207 @@ export default function MatchConfigPage() {
   if (!matchData) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-muted-foreground">Cargando...</p>
+        <p className="text-muted-foreground text-sm uppercase tracking-widest">Cargando...</p>
       </div>
     )
   }
 
+  const tabs: { key: Tab; label: string; ok: boolean }[] = [
+    { key: 'mesa', label: 'Mesa', ok: mesaOk },
+    { key: 'home', label: matchData.teamHome.nombre, ok: homeOk },
+    { key: 'away', label: matchData.teamAway.nombre, ok: awayOk },
+  ]
+
   return (
-    <main className="min-h-screen p-4 sm:p-6 max-w-3xl mx-auto pb-44">
-      <header className="pt-4 mb-6 flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={() => router.push(`/t/${tournamentId}`)}>←</Button>
-        <div>
-          <h1 className="text-lg font-bold">Configurar Encuentro</h1>
-          <p className="text-xs text-muted-foreground">
-            {matchData.teamHome.nombre} vs {matchData.teamAway.nombre}
-          </p>
+    <div className="min-h-screen flex flex-col">
+      {/* Header */}
+      <header className="sticky top-0 z-20 bg-background border-b border-border/60">
+        <div className="max-w-3xl mx-auto px-4 pt-4 pb-0 flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => router.push(`/t/${tournamentId}`)}>←</Button>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-widest text-primary">Configurar Encuentro</p>
+            <p className="text-sm font-bold truncate">
+              {matchData.teamHome.nombre} <span className="text-muted-foreground font-normal">vs</span> {matchData.teamAway.nombre}
+            </p>
+          </div>
+        </div>
+
+        {/* Tab bar */}
+        <div className="max-w-3xl mx-auto px-4 flex gap-1 mt-3">
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setActiveTab(t.key)}
+              className={`relative flex-1 pb-3 pt-1 text-xs font-semibold uppercase tracking-wider truncate transition-colors ${
+                activeTab === t.key
+                  ? 'text-foreground'
+                  : 'text-muted-foreground hover:text-foreground/70'
+              }`}
+            >
+              {t.label}
+              {t.ok && (
+                <span className="ml-1 inline-block w-1.5 h-1.5 rounded-full bg-primary align-middle" />
+              )}
+              {activeTab === t.key && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+              )}
+            </button>
+          ))}
         </div>
       </header>
 
-      {/* Officials */}
-      <Card className="mb-6">
-        <CardContent className="pt-4 space-y-3">
-          <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Mesa y Árbitros
-          </h2>
-          <Input
-            placeholder="Árbitro Principal *"
-            value={officials.arbitro_principal}
-            onChange={(e) => setOfficials((o) => ({ ...o, arbitro_principal: e.target.value }))}
-          />
-          <Input
-            placeholder="Árbitro Auxiliar"
-            value={officials.arbitro_auxiliar}
-            onChange={(e) => setOfficials((o) => ({ ...o, arbitro_auxiliar: e.target.value }))}
-          />
-          <Input
-            placeholder="Planillero"
-            value={officials.planillero}
-            onChange={(e) => setOfficials((o) => ({ ...o, planillero: e.target.value }))}
-          />
-          <Input
-            placeholder="Anotador"
-            value={officials.anotador}
-            onChange={(e) => setOfficials((o) => ({ ...o, anotador: e.target.value }))}
-          />
-        </CardContent>
-      </Card>
+      {/* Tab content */}
+      <main className="flex-1 overflow-y-auto max-w-3xl w-full mx-auto px-4 py-6 pb-36">
 
-      {/* Players per team */}
-      {(
-        [
-          { label: matchData.teamHome.nombre, side: 'home' as const, players: playersHome, starters: startersHome, hasCaptain: captainHome },
-          { label: matchData.teamAway.nombre, side: 'away' as const, players: playersAway, starters: startersAway, hasCaptain: captainAway },
-        ] as const
-      ).map(({ label, side, players, starters, hasCaptain }) => (
-        <Card key={side} className="mb-6">
-          <CardContent className="pt-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                {label}
-              </h2>
-              <div className="flex gap-2 text-xs text-muted-foreground">
-                <span className={starters === 5 ? 'text-primary font-bold' : ''}>
-                  {starters}/5 titulares
-                </span>
-                {hasCaptain && <Badge variant="secondary" className="text-xs">Capitán ✓</Badge>}
-              </div>
-            </div>
-            <div className="text-xs text-muted-foreground flex gap-4 pl-16">
-              <span>T = Titular</span>
-              <span>C = Capitán</span>
-            </div>
-            <div className="space-y-2">
-              {players.map((p, i) => (
-                <PlayerRow
-                  key={i}
-                  player={p}
-                  onChange={(patch) => updatePlayer(side, i, patch)}
-                  onRemove={() => removePlayer(side, i)}
-                  onToggleStarter={() => toggleStarter(side, i)}
-                  onToggleCaptain={() => toggleCaptain(side, i)}
-                  startersCount={starters}
-                  hasCaptain={hasCaptain && !p.is_captain}
+        {/* MESA */}
+        {activeTab === 'mesa' && (
+          <div className="space-y-4">
+            <p className="text-xs text-muted-foreground uppercase tracking-widest font-semibold">Árbitros y Mesa de Control</p>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-xs uppercase tracking-wider text-muted-foreground font-medium">Árbitro Principal *</label>
+                <Input
+                  placeholder="Nombre completo"
+                  value={officials.arbitro_principal}
+                  onChange={(e) => setOfficials((o) => ({ ...o, arbitro_principal: e.target.value }))}
+                  className="uppercase"
                 />
-              ))}
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs uppercase tracking-wider text-muted-foreground font-medium">Árbitro Auxiliar</label>
+                <Input
+                  placeholder="Nombre completo"
+                  value={officials.arbitro_auxiliar}
+                  onChange={(e) => setOfficials((o) => ({ ...o, arbitro_auxiliar: e.target.value }))}
+                  className="uppercase"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs uppercase tracking-wider text-muted-foreground font-medium">Planillero</label>
+                <Input
+                  placeholder="Nombre completo"
+                  value={officials.planillero}
+                  onChange={(e) => setOfficials((o) => ({ ...o, planillero: e.target.value }))}
+                  className="uppercase"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs uppercase tracking-wider text-muted-foreground font-medium">Anotador</label>
+                <Input
+                  placeholder="Nombre completo"
+                  value={officials.anotador}
+                  onChange={(e) => setOfficials((o) => ({ ...o, anotador: e.target.value }))}
+                  className="uppercase"
+                />
+              </div>
             </div>
             <Button
               variant="outline"
               size="sm"
-              className="w-full text-xs"
-              onClick={() => addPlayer(side)}
+              className="w-full mt-2 uppercase tracking-wider text-xs font-semibold"
+              onClick={() => setActiveTab('home')}
             >
-              + Agregar Jugador
+              Siguiente → {matchData.teamHome.nombre}
             </Button>
-          </CardContent>
-        </Card>
-      ))}
+          </div>
+        )}
+
+        {/* HOME / AWAY TEAMS */}
+        {(activeTab === 'home' || activeTab === 'away') && (() => {
+          const side = activeTab === 'home' ? 'home' as const : 'away' as const
+          const players = side === 'home' ? playersHome : playersAway
+          const starters = side === 'home' ? startersHome : startersAway
+          const hasCaptain = side === 'home' ? captainHome : captainAway
+          const teamName = side === 'home' ? matchData.teamHome.nombre : matchData.teamAway.nombre
+          const nextTab: Tab | null = side === 'home' ? 'away' : null
+
+          return (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground uppercase tracking-widest font-semibold">
+                  {teamName}
+                </p>
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs font-bold ${starters === 5 ? 'text-primary' : 'text-muted-foreground'}`}>
+                    {starters}/5 Titulares
+                  </span>
+                  {hasCaptain && (
+                    <Badge variant="secondary" className="text-xs uppercase tracking-wide">Capitán ✓</Badge>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex gap-4 text-xs text-muted-foreground uppercase tracking-wider">
+                <span className="flex items-center gap-1">
+                  <span className="w-6 h-6 rounded bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">T</span>
+                  Titular
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-6 h-6 rounded bg-muted text-muted-foreground text-xs font-bold flex items-center justify-center">C</span>
+                  Capitán
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                {players.map((p, i) => (
+                  <PlayerRow
+                    key={i}
+                    player={p}
+                    onChange={(patch) => updatePlayer(side, i, patch)}
+                    onRemove={() => removePlayer(side, i)}
+                    onToggleStarter={() => toggleStarter(side, i)}
+                    onToggleCaptain={() => toggleCaptain(side, i)}
+                    startersCount={starters}
+                    hasCaptain={hasCaptain && !p.is_captain}
+                  />
+                ))}
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full text-xs uppercase tracking-wider font-semibold"
+                onClick={() => addPlayer(side)}
+              >
+                + Agregar Jugador
+              </Button>
+
+              {nextTab && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full mt-1 uppercase tracking-wider text-xs font-semibold"
+                  onClick={() => setActiveTab(nextTab)}
+                >
+                  Siguiente → {matchData.teamAway.nombre}
+                </Button>
+              )}
+            </div>
+          )
+        })()}
+      </main>
 
       {/* Fixed bottom bar */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t border-border">
-        <div className="max-w-3xl mx-auto">
+      <div className="fixed bottom-0 left-0 right-0 z-30 bg-background/95 backdrop-blur border-t border-border/60">
+        <div className="max-w-3xl mx-auto p-4">
           {!canStart && (
-            <p className="text-xs text-muted-foreground text-center mb-2">
-              {!officials.arbitro_principal.trim()
+            <p className="text-xs text-muted-foreground text-center mb-2 uppercase tracking-wide">
+              {!mesaOk
                 ? 'Falta el árbitro principal'
-                : startersHome < 5 || startersAway < 5
-                ? `Faltan titulares — Local: ${startersHome}/5, Visitante: ${startersAway}/5`
-                : !captainHome || !captainAway
-                ? 'Falta designar capitán en algún equipo'
-                : 'Completá los datos de los jugadores'}
+                : !homeOk
+                ? `Local: ${startersHome}/5 titulares${!captainHome ? ' · falta capitán' : ''}`
+                : `Visitante: ${startersAway}/5 titulares${!captainAway ? ' · falta capitán' : ''}`}
             </p>
           )}
           <Button
-            className="w-full"
-            size="lg"
+            className="w-full h-11 font-bold uppercase tracking-wider"
             disabled={!canStart || starting}
             onClick={handleStart}
           >
-            {starting ? 'Iniciando...' : '🏀 Iniciar Encuentro'}
+            {starting ? 'Iniciando...' : 'Iniciar Encuentro'}
           </Button>
         </div>
       </div>
-    </main>
+    </div>
   )
 }
