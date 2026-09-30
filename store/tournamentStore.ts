@@ -55,6 +55,8 @@ type LiveMatchState = {
   // Timeout counters (consumed across the half)
   timeoutsHomeUsed: number
   timeoutsAwayUsed: number
+  colorHome: string
+  colorAway: string
 }
 
 type LiveMatchActions = {
@@ -65,7 +67,9 @@ type LiveMatchActions = {
     teamAway: TournamentTeam,
     playersHome: MatchPlayer[],
     playersAway: MatchPlayer[],
-    events: TournamentEvent[]
+    events: TournamentEvent[],
+    colorHome?: string,
+    colorAway?: string
   ) => void
   resetLiveMatch: () => void
 
@@ -113,6 +117,8 @@ const initialLiveMatchState: LiveMatchState = {
   teamAwayFoulsThisQuarter: 0,
   timeoutsHomeUsed: 0,
   timeoutsAwayUsed: 0,
+  colorHome: '#3B82F6',
+  colorAway: '#EF4444',
 }
 
 /** How many timeouts are allowed up to and including the given quarter (cumulative). */
@@ -130,7 +136,7 @@ export const useLiveMatchStore = create<LiveMatchState & LiveMatchActions>()(
 
       // ── Init / reset ──────────────────────────────────────────────────────
 
-      initLiveMatch: (matchId, config, teamHome, teamAway, playersHome, playersAway, events) =>
+      initLiveMatch: (matchId, config, teamHome, teamAway, playersHome, playersAway, events, colorHome, colorAway) =>
         set({
           ...initialLiveMatchState,
           tournamentMatchId: matchId,
@@ -141,6 +147,8 @@ export const useLiveMatchStore = create<LiveMatchState & LiveMatchActions>()(
           playersAway,
           events,
           possessionHome: config.possession_home ?? true,
+          colorHome: colorHome ?? '#3B82F6',
+          colorAway: colorAway ?? '#EF4444',
         }),
 
       resetLiveMatch: () => set(initialLiveMatchState),

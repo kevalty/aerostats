@@ -22,6 +22,8 @@ function emptyPlayer(): PlayerForm {
   return { nombre: '', numero: '', is_starter: false, is_captain: false }
 }
 
+const TEAM_COLORS = ['#3B82F6','#EF4444','#22C55E','#F97316','#A855F7','#EAB308','#FFFFFF','#6B7280']
+
 function PlayerRow({
   player, onChange, onRemove, onToggleStarter, onToggleCaptain, startersCount, hasCaptain,
 }: {
@@ -102,6 +104,8 @@ export default function MatchConfigPage() {
   })
   const [playersHome, setPlayersHome] = useState<PlayerForm[]>([emptyPlayer()])
   const [playersAway, setPlayersAway] = useState<PlayerForm[]>([emptyPlayer()])
+  const [colorHome, setColorHome] = useState('#3B82F6')
+  const [colorAway, setColorAway] = useState('#EF4444')
   const [starting, setStarting] = useState(false)
 
   useEffect(() => {
@@ -195,7 +199,7 @@ export default function MatchConfigPage() {
       }
 
       await updateTournamentMatchStatus(matchId, 'en_curso')
-      initLiveMatch(matchId, config, matchData.teamHome, matchData.teamAway, savedHome, savedAway, [])
+      initLiveMatch(matchId, config, matchData.teamHome, matchData.teamAway, savedHome, savedAway, [], colorHome, colorAway)
       router.push(`/t/${tournamentId}/match/${matchId}/play`)
     } catch (e) {
       console.error(e)
@@ -371,6 +375,24 @@ export default function MatchConfigPage() {
               >
                 + Agregar Jugador
               </Button>
+
+              <div className="space-y-2 pt-1">
+                <label className="text-xs uppercase tracking-wider text-muted-foreground font-medium">Color del equipo</label>
+                <div className="flex gap-2 flex-wrap">
+                  {TEAM_COLORS.map((c) => {
+                    const selected = side === 'home' ? colorHome === c : colorAway === c
+                    return (
+                      <button
+                        key={c}
+                        onClick={() => side === 'home' ? setColorHome(c) : setColorAway(c)}
+                        className={`w-8 h-8 rounded-full border-2 transition-all ${selected ? 'border-foreground scale-110' : 'border-transparent'}`}
+                        style={{ backgroundColor: c }}
+                        title={c}
+                      />
+                    )
+                  })}
+                </div>
+              </div>
 
               {nextTab && (
                 <Button
