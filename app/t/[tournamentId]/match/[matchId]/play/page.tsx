@@ -403,7 +403,8 @@ function PortraitWarning() {
 export default function PlayPage() {
   const { tournamentId, matchId } = useParams<{ tournamentId: string; matchId: string }>()
   const router = useRouter()
-  const { session, _hasHydrated: sessionHydrated } = useSessionStore((s) => ({ session: s.session, _hasHydrated: s._hasHydrated }))
+  const session = useSessionStore((s) => s.session)
+  const sessionHydrated = useSessionStore((s) => s._hasHydrated)
 
   const store = useLiveMatchStore()
   const {

@@ -90,7 +90,8 @@ type Tab = 'mesa' | 'home' | 'away'
 export default function MatchConfigPage() {
   const { tournamentId, matchId } = useParams<{ tournamentId: string; matchId: string }>()
   const router = useRouter()
-  const { session, _hasHydrated } = useSessionStore((s) => ({ session: s.session, _hasHydrated: s._hasHydrated }))
+  const session = useSessionStore((s) => s.session)
+  const _hasHydrated = useSessionStore((s) => s._hasHydrated)
   const initLiveMatch = useLiveMatchStore((s) => s.initLiveMatch)
 
   const [matchData, setMatchData] = useState<{ teamHome: TournamentTeam; teamAway: TournamentTeam } | null>(null)
