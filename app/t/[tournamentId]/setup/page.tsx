@@ -25,7 +25,8 @@ export default function SetupPage() {
   const [versusDialog, setVersusDialog] = useState(false)
 
   const [teamForm, setTeamForm] = useState({ nombre: '', ciudad: '', categoria: '', genero: '' })
-  const [versusForm, setVersusForm] = useState({ homeId: '', awayId: '', scheduled_at: '' })
+  // Split date and time for better UX on all devices
+  const [versusForm, setVersusForm] = useState({ homeId: '', awayId: '', date: '', time: '' })
 
   useEffect(() => {
     if (!session || session.tournament_id !== tournamentId) { router.push('/login'); return }
@@ -81,21 +82,29 @@ export default function SetupPage() {
   async function handleAddVersus() {
     if (!versusForm.homeId || !versusForm.awayId || versusForm.homeId === versusForm.awayId) return
     try {
+      const scheduled_at = versusForm.date
+        ? versusForm.time
+          ? `${versusForm.date}T${versusForm.time}`
+          : `${versusForm.date}T00:00`
+        : undefined
       await createTournamentMatch({
         tournament_id: tournamentId,
         team_home_id: versusForm.homeId,
         team_away_id: versusForm.awayId,
         match_order: matches.length + 1,
-        scheduled_at: versusForm.scheduled_at || undefined,
+        scheduled_at,
         status: 'pendiente',
       })
       setVersusDialog(false)
-      setVersusForm({ homeId: '', awayId: '', scheduled_at: '' })
+      setVersusForm({ homeId: '', awayId: '', date: '', time: '' })
       await loadData()
     } catch (e) {
       console.error(e)
     }
   }
+
+  const homeTeamName = teams.find(t => t.id === versusForm.homeId)?.nombre
+  const awayTeamName = teams.find(t => t.id === versusForm.awayId)?.nombre
 
   return (
     <main className="min-h-screen p-4 sm:p-6 max-w-3xl mx-auto">
@@ -210,12 +219,26 @@ export default function SetupPage() {
               <Input value={teamForm.ciudad} onChange={(e) => setTeamForm((f) => ({ ...f, ciudad: e.target.value }))} placeholder="Buenos Aires" />
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium">Categoria</label>
+              <label className="text-sm font-medium">Categoría</label>
               <Input value={teamForm.categoria} onChange={(e) => setTeamForm((f) => ({ ...f, categoria: e.target.value }))} placeholder="Sub-15, Mayores..." />
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium">Genero</label>
-              <Input value={teamForm.genero} onChange={(e) => setTeamForm((f) => ({ ...f, genero: e.target.value }))} placeholder="Masculino, Femenino..." />
+              <label className="text-sm font-medium">Género</label>
+              <Select
+                value={teamForm.genero}
+                onValueChange={(v) => setTeamForm((f) => ({ ...f, genero: v ?? '' }))}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Seleccionar...">
+                    {teamForm.genero || null}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Masculino">Masculino</SelectItem>
+                  <SelectItem value="Femenino">Femenino</SelectItem>
+                  <SelectItem value="Mixto">Mixto</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <Button className="w-full" onClick={handleAddTeam} disabled={!teamForm.nombre.trim()}>Agregar Equipo</Button>
           </div>
@@ -230,7 +253,11 @@ export default function SetupPage() {
             <div className="space-y-1">
               <label className="text-sm font-medium">Equipo Local</label>
               <Select value={versusForm.homeId} onValueChange={(v) => setVersusForm((f) => ({ ...f, homeId: v ?? '' }))}>
-                <SelectTrigger className="w-full"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Seleccionar...">
+                    {homeTeamName ?? null}
+                  </SelectValue>
+                </SelectTrigger>
                 <SelectContent>
                   {teams.map((t) => <SelectItem key={t.id} value={t.id}>{t.nombre}</SelectItem>)}
                 </SelectContent>
@@ -239,7 +266,11 @@ export default function SetupPage() {
             <div className="space-y-1">
               <label className="text-sm font-medium">Equipo Visitante</label>
               <Select value={versusForm.awayId} onValueChange={(v) => setVersusForm((f) => ({ ...f, awayId: v ?? '' }))}>
-                <SelectTrigger className="w-full"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Seleccionar...">
+                    {awayTeamName ?? null}
+                  </SelectValue>
+                </SelectTrigger>
                 <SelectContent>
                   {teams.filter((t) => t.id !== versusForm.homeId).map((t) => <SelectItem key={t.id} value={t.id}>{t.nombre}</SelectItem>)}
                 </SelectContent>
@@ -247,7 +278,26 @@ export default function SetupPage() {
             </div>
             <div className="space-y-1">
               <label className="text-sm font-medium">Fecha y hora (opcional)</label>
-              <Input type="datetime-local" value={versusForm.scheduled_at} onChange={(e) => setVersusForm((f) => ({ ...f, scheduled_at: e.target.value }))} />
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Fecha</label>
+                  <Input
+                    type="date"
+                    value={versusForm.date}
+                    onChange={(e) => setVersusForm((f) => ({ ...f, date: e.target.value }))}
+                    className="cursor-pointer"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Hora</label>
+                  <Input
+                    type="time"
+                    value={versusForm.time}
+                    onChange={(e) => setVersusForm((f) => ({ ...f, time: e.target.value }))}
+                    className="cursor-pointer"
+                  />
+                </div>
+              </div>
             </div>
             <Button
               className="w-full"

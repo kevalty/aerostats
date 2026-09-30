@@ -244,7 +244,7 @@ export default function MatchConfigPage() {
   }
 
   return (
-    <main className="min-h-screen p-4 sm:p-6 max-w-3xl mx-auto pb-24">
+    <main className="min-h-screen p-4 sm:p-6 max-w-3xl mx-auto pb-44">
       <header className="pt-4 mb-6 flex items-center gap-3">
         <Button variant="ghost" size="sm" onClick={() => router.push(`/t/${tournamentId}`)}>←</Button>
         <div>
