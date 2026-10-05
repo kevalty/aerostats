@@ -596,7 +596,7 @@ export default function PlayPage() {
   }
 
   return (
-    <div className="h-screen w-screen flex flex-col overflow-hidden bg-background select-none" style={{ paddingLeft: 'env(safe-area-inset-left)', paddingRight: 'env(safe-area-inset-right)', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+    <div className="flex flex-col overflow-hidden bg-background select-none" style={{ width: '100dvw', height: '100dvh', paddingLeft: 'env(safe-area-inset-left)', paddingRight: 'env(safe-area-inset-right)', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
 
       {/* Portrait warning */}
       {isPortrait && <PortraitWarning />}

@@ -25,7 +25,7 @@ function emptyPlayer(): PlayerForm {
 const TEAM_COLORS = ['#3B82F6','#EF4444','#22C55E','#F97316','#A855F7','#EAB308','#FFFFFF','#6B7280']
 
 function PlayerRow({
-  player, onChange, onRemove, onToggleStarter, onToggleCaptain, startersCount, hasCaptain,
+  player, onChange, onRemove, onToggleStarter, onToggleCaptain, startersCount, hasCaptain, isDuplicate,
 }: {
   player: PlayerForm
   onChange: (p: Partial<PlayerForm>) => void
@@ -34,11 +34,12 @@ function PlayerRow({
   onToggleCaptain: () => void
   startersCount: number
   hasCaptain: boolean
+  isDuplicate: boolean
 }) {
   return (
     <div className="flex items-center gap-2">
       <Input
-        className="w-14 text-center font-mono"
+        className={`w-14 text-center font-mono ${isDuplicate ? 'border-destructive ring-1 ring-destructive' : ''}`}
         placeholder="#"
         value={player.numero}
         onChange={(e) => onChange({ numero: e.target.value.replace(/\D/g, '').slice(0, 2) })}
@@ -157,9 +158,19 @@ export default function MatchConfigPage() {
   const captainHome = playersHome.some((p) => p.is_captain)
   const captainAway = playersAway.some((p) => p.is_captain)
 
+  function duplicateNums(players: PlayerForm[]): Set<string> {
+    const nums = players.map((p) => p.numero).filter(Boolean)
+    const seen = new Set<string>()
+    const dups = new Set<string>()
+    for (const n of nums) { if (seen.has(n)) dups.add(n); else seen.add(n) }
+    return dups
+  }
+  const homeDups = duplicateNums(playersHome)
+  const awayDups = duplicateNums(playersAway)
+
   const mesaOk = !!officials.arbitro_principal.trim()
-  const homeOk = startersHome === 5 && captainHome && playersHome.every((p) => p.nombre.trim() && p.numero)
-  const awayOk = startersAway === 5 && captainAway && playersAway.every((p) => p.nombre.trim() && p.numero)
+  const homeOk = startersHome === 5 && captainHome && homeDups.size === 0 && playersHome.every((p) => p.nombre.trim() && p.numero)
+  const awayOk = startersAway === 5 && captainAway && awayDups.size === 0 && playersAway.every((p) => p.nombre.trim() && p.numero)
   const canStart = mesaOk && homeOk && awayOk
 
   async function handleStart() {
@@ -365,6 +376,7 @@ export default function MatchConfigPage() {
                     onToggleCaptain={() => toggleCaptain(side, i)}
                     startersCount={starters}
                     hasCaptain={hasCaptain && !p.is_captain}
+                    isDuplicate={!!p.numero && (side === 'home' ? homeDups : awayDups).has(p.numero)}
                   />
                 ))}
               </div>
