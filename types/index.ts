@@ -176,3 +176,10 @@ export type OperatorSession = {
   op_username: string
   logged_in_at: string
 }
+
+export type CoachRosterPlayer = {
+  nombre: string
+  numero: number
+  is_starter: boolean
+  is_captain: boolean
+}

@@ -337,3 +337,34 @@ export async function getSignatures(tournamentMatchId: string): Promise<MatchSig
   if (error) throw error
   return data
 }
+
+// ── Coach roster ──────────────────────────────────────────────────────────────
+
+export async function getCoachRosterSubmission(
+  matchId: string,
+  teamId: string
+): Promise<import('@/types').CoachRosterPlayer[] | null> {
+  const supabase = await db()
+  const { data } = await supabase
+    .from('coach_roster_submissions')
+    .select('players')
+    .eq('tournament_match_id', matchId)
+    .eq('team_id', teamId)
+    .single()
+  return data ? (data.players as import('@/types').CoachRosterPlayer[]) : null
+}
+
+export async function upsertCoachRoster(
+  matchId: string,
+  teamId: string,
+  players: import('@/types').CoachRosterPlayer[]
+): Promise<void> {
+  const supabase = await db()
+  const { error } = await supabase
+    .from('coach_roster_submissions')
+    .upsert(
+      { tournament_match_id: matchId, team_id: teamId, players, updated_at: new Date().toISOString() },
+      { onConflict: 'tournament_match_id,team_id' }
+    )
+  if (error) throw error
+}
