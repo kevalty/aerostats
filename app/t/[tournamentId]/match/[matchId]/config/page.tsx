@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -113,6 +113,10 @@ export default function MatchConfigPage() {
   const [copiedSide, setCopiedSide] = useState<'home' | 'away' | null>(null)
   const [loadingRoster, setLoadingRoster] = useState<'home' | 'away' | null>(null)
   const [rosterMsg, setRosterMsg] = useState<{ side: 'home' | 'away'; text: string } | null>(null)
+  const [scanning, setScanning] = useState<'home' | 'away' | null>(null)
+  const [scanError, setScanError] = useState<{ side: 'home' | 'away'; text: string } | null>(null)
+  const scanInputHomeRef = useRef<HTMLInputElement>(null)
+  const scanInputAwayRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!_hasHydrated) return
@@ -260,6 +264,56 @@ export default function MatchConfigPage() {
       setRosterMsg({ side, text: 'Error al cargar el plantel' })
     } finally {
       setLoadingRoster(null)
+    }
+  }
+
+  async function handleScanImage(side: 'home' | 'away', file: File) {
+    setScanning(side)
+    setScanError(null)
+    try {
+      const reader = new FileReader()
+      const base64 = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string)
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+
+      const res = await fetch('/api/scan-roster', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64 }),
+      })
+
+      const json = await res.json() as { players?: Array<{ nombre: string; numero: number }>; error?: string }
+
+      if (!res.ok || json.error) {
+        setScanError({ side, text: json.error ?? 'Error al escanear' })
+        return
+      }
+
+      const newPlayers: PlayerForm[] = (json.players ?? []).map((p) => ({
+        nombre: p.nombre,
+        numero: String(p.numero),
+        is_starter: false,
+        is_captain: false,
+      }))
+
+      if (side === 'home') {
+        setPlayersHome((prev) => {
+          const hasContent = prev.some((p) => p.nombre.trim() || p.numero)
+          return hasContent ? [...prev, ...newPlayers] : newPlayers
+        })
+      } else {
+        setPlayersAway((prev) => {
+          const hasContent = prev.some((p) => p.nombre.trim() || p.numero)
+          return hasContent ? [...prev, ...newPlayers] : newPlayers
+        })
+      }
+    } catch (e) {
+      console.error(e)
+      setScanError({ side, text: 'Error al procesar la imagen' })
+    } finally {
+      setScanning(null)
     }
   }
 
@@ -447,14 +501,32 @@ export default function MatchConfigPage() {
                 ))}
               </div>
 
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full text-xs uppercase tracking-wider font-semibold"
-                onClick={() => addPlayer(side)}
-              >
-                + Agregar Jugador
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 text-xs uppercase tracking-wider font-semibold"
+                  onClick={() => addPlayer(side)}
+                >
+                  + Agregar Jugador
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 text-xs uppercase tracking-wider font-semibold"
+                  disabled={scanning === side}
+                  onClick={() => {
+                    setScanError(null)
+                    if (side === 'home') scanInputHomeRef.current?.click()
+                    else scanInputAwayRef.current?.click()
+                  }}
+                >
+                  {scanning === side ? 'Escaneando...' : '📷 Escanear planilla'}
+                </Button>
+              </div>
+              {scanError?.side === side && (
+                <p className="text-xs text-destructive text-center">{scanError.text}</p>
+              )}
 
               <div className="space-y-2 pt-1">
                 <label className="text-xs uppercase tracking-wider text-muted-foreground font-medium">Color del equipo</label>
@@ -488,6 +560,32 @@ export default function MatchConfigPage() {
           )
         })()}
       </main>
+
+      {/* Hidden file inputs for OCR scan */}
+      <input
+        ref={scanInputHomeRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0]
+          if (file) handleScanImage('home', file)
+          e.target.value = ''
+        }}
+      />
+      <input
+        ref={scanInputAwayRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0]
+          if (file) handleScanImage('away', file)
+          e.target.value = ''
+        }}
+      />
 
       {/* Fixed bottom bar */}
       <div className="fixed bottom-0 left-0 right-0 z-30 bg-background/95 backdrop-blur border-t border-border/60">
