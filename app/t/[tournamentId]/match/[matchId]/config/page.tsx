@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { useSessionStore, useLiveMatchStore } from '@/store/tournamentStore'
 import {
   getTournamentMatches, saveMatchConfig, saveMatchPlayer, updateTournamentMatchStatus,
+  getCoachRosterSubmission,
 } from '@/lib/supabase/queries'
 import type { MatchPlayer, TournamentTeam } from '@/types'
 
@@ -109,6 +110,9 @@ export default function MatchConfigPage() {
   const [colorHome, setColorHome] = useState('#3B82F6')
   const [colorAway, setColorAway] = useState('#EF4444')
   const [starting, setStarting] = useState(false)
+  const [copiedSide, setCopiedSide] = useState<'home' | 'away' | null>(null)
+  const [loadingRoster, setLoadingRoster] = useState<'home' | 'away' | null>(null)
+  const [rosterMsg, setRosterMsg] = useState<{ side: 'home' | 'away'; text: string } | null>(null)
 
   useEffect(() => {
     if (!_hasHydrated) return
@@ -218,6 +222,44 @@ export default function MatchConfigPage() {
       console.error(e)
     } finally {
       setStarting(false)
+    }
+  }
+
+  async function handleCopyLink(side: 'home' | 'away') {
+    if (!matchData) return
+    const teamId = side === 'home' ? matchData.teamHome.id : matchData.teamAway.id
+    const url = `${window.location.origin}/roster/${matchId}/${teamId}`
+    await navigator.clipboard.writeText(url)
+    setCopiedSide(side)
+    setTimeout(() => setCopiedSide(null), 2000)
+  }
+
+  async function handleLoadRoster(side: 'home' | 'away') {
+    if (!matchData) return
+    const teamId = side === 'home' ? matchData.teamHome.id : matchData.teamAway.id
+    setLoadingRoster(side)
+    setRosterMsg(null)
+    try {
+      const data = await getCoachRosterSubmission(matchId, teamId)
+      if (!data || data.length === 0) {
+        setRosterMsg({ side, text: 'El coach aún no envió el plantel' })
+        return
+      }
+      const forms: PlayerForm[] = data.map((p) => ({
+        nombre: p.nombre,
+        numero: String(p.numero),
+        is_starter: p.is_starter,
+        is_captain: p.is_captain,
+      }))
+      if (side === 'home') setPlayersHome(forms)
+      else setPlayersAway(forms)
+      setRosterMsg({ side, text: `Plantel cargado — ${forms.length} jugadores` })
+      setTimeout(() => setRosterMsg(null), 3000)
+    } catch (e) {
+      console.error(e)
+      setRosterMsg({ side, text: 'Error al cargar el plantel' })
+    } finally {
+      setLoadingRoster(null)
     }
   }
 
@@ -353,6 +395,30 @@ export default function MatchConfigPage() {
                   )}
                 </div>
               </div>
+
+              {/* Coach link row */}
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 text-xs uppercase tracking-wider font-semibold h-8"
+                  onClick={() => handleCopyLink(side)}
+                >
+                  {copiedSide === side ? '¡Link copiado!' : 'Copiar link coach'}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 text-xs uppercase tracking-wider font-semibold h-8"
+                  onClick={() => handleLoadRoster(side)}
+                  disabled={loadingRoster === side}
+                >
+                  {loadingRoster === side ? 'Cargando...' : 'Cargar plantel ↓'}
+                </Button>
+              </div>
+              {rosterMsg?.side === side && (
+                <p className="text-xs text-muted-foreground text-center">{rosterMsg.text}</p>
+              )}
 
               <div className="flex gap-4 text-xs text-muted-foreground uppercase tracking-wider">
                 <span className="flex items-center gap-1">
