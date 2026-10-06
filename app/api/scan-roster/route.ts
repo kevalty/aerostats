@@ -21,48 +21,41 @@ export async function POST(req: Request) {
       )
     }
 
-    const apiKey = process.env.OPENROUTER_API_KEY
+    const apiKey = process.env.GOOGLE_AI_API_KEY
     if (!apiKey) {
       return NextResponse.json({ error: 'Servicio de escaneo no configurado.' }, { status: 500 })
     }
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemma-4-26b-a4b-it:free',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'image_url',
-                image_url: { url: body.image },
-              },
-              {
-                type: 'text',
-                text: 'You are a sports roster scanner. Extract all player entries from this roster image. Return ONLY a JSON array, no markdown, no explanation: [{"nombre": string, "numero": number}]. If a field is unclear, omit that player.',
-              },
+    const base64Data = body.image.slice(body.image.indexOf(',') + 1)
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { inline_data: { mime_type: mediaType, data: base64Data } },
+              { text: 'You are a sports roster scanner. Extract all player entries from this roster image. Return ONLY a JSON array, no markdown, no explanation: [{"nombre": string, "numero": number}]. If a field is unclear, omit that player.' },
             ],
-          },
-        ],
-      }),
-    })
+          }],
+          generationConfig: { temperature: 0 },
+        }),
+      }
+    )
 
     if (!response.ok) {
       const errText = await response.text()
-      console.error('[scan-roster] OpenRouter error:', errText)
-      return NextResponse.json({ error: `OpenRouter: ${response.status} — ${errText.slice(0, 200)}` }, { status: 400 })
+      console.error('[scan-roster] Google AI error:', errText)
+      return NextResponse.json({ error: `Error del escáner: ${response.status}` }, { status: 400 })
     }
 
     const data = await response.json() as {
-      choices?: Array<{ message?: { content?: string } }>
+      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>
     }
 
-    const raw = data.choices?.[0]?.message?.content?.trim() ?? ''
+    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? ''
     const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
 
     let parsed: unknown
