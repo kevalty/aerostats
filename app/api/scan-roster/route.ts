@@ -29,7 +29,7 @@ export async function POST(req: Request) {
     const base64Data = body.image.slice(body.image.indexOf(',') + 1)
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -47,8 +47,8 @@ export async function POST(req: Request) {
 
     if (!response.ok) {
       const errText = await response.text()
-      console.error('[scan-roster] Google AI error:', errText)
-      return NextResponse.json({ error: `Error del escáner: ${response.status}` }, { status: 400 })
+      console.error('[scan-roster] Google AI error:', response.status, errText)
+      return NextResponse.json({ error: `Error del escáner: ${response.status} — ${errText.slice(0, 200)}` }, { status: 400 })
     }
 
     const data = await response.json() as {
