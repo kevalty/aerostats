@@ -55,7 +55,7 @@ export async function POST(req: Request) {
     if (!response.ok) {
       const errText = await response.text()
       console.error('[scan-roster] OpenRouter error:', errText)
-      return NextResponse.json({ error: 'Error al escanear la imagen.' }, { status: 400 })
+      return NextResponse.json({ error: `OpenRouter: ${response.status} — ${errText.slice(0, 200)}` }, { status: 400 })
     }
 
     const data = await response.json() as {
